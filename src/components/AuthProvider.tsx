@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode } from 'react'
 
 interface User {
   id: string
@@ -25,94 +25,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Check if user is logged in on app start
-  useEffect(() => {
-    checkAuthStatus()
-  }, [])
-
-  const checkAuthStatus = async () => {
-    try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        setIsLoading(false)
-        return
-      }
-
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-      } else {
-        localStorage.removeItem('auth_token')
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error)
-      localStorage.removeItem('auth_token')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const [isLoading, setIsLoading] = useState(false) // Changed to false for testing
 
   const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        localStorage.setItem('auth_token', data.token)
-        setUser(data.user)
-        return { success: true, message: 'Login successful!' }
-      } else {
-        return { success: false, message: data.message || 'Login failed' }
-      }
-    } catch (error) {
-      return { success: false, message: 'Network error. Please try again.' }
-    }
+    // Temporary mock - no API call yet
+    return { success: false, message: 'API not connected yet' }
   }
 
   const register = async (email: string, password: string, name: string) => {
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, name }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        return { success: true, message: 'Registration successful! Please check your email to verify your account.' }
-      } else {
-        return { success: false, message: data.message || 'Registration failed' }
-      }
-    } catch (error) {
-      return { success: false, message: 'Network error. Please try again.' }
-    }
+    // Temporary mock - no API call yet
+    return { success: false, message: 'API not connected yet' }
   }
 
   const logout = () => {
-    localStorage.removeItem('auth_token')
     setUser(null)
   }
 
   const refreshUser = async () => {
-    await checkAuthStatus()
+    // Temporary mock
   }
 
   return (

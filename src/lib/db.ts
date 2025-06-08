@@ -37,9 +37,12 @@ export interface AdminAction {
 export const db = {
   // User operations
   async createUser(email: string, passwordHash: string, name: string): Promise<User> {
+    const token = generateToken()
+    const expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    
     const result = await sql`
       INSERT INTO users (email, password_hash, name, email_verification_token, email_verification_expires)
-      VALUES (${email}, ${passwordHash}, ${name}, ${generateToken()}, ${new Date(Date.now() + 24 * 60 * 60 * 1000)})
+      VALUES (${email}, ${passwordHash}, ${name}, ${token}, ${expirationDate})
       RETURNING *
     `
     return result.rows[0] as User

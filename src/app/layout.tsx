@@ -1,6 +1,7 @@
-import '.app/globals.css'
+// src/app/layout.tsx
+import './globals.css'  // Fixed the dot
 import { Inter } from 'next/font/google'
-import { AuthProvider } from '../components/AuthProvider'
+import { AuthProvider } from '@/components/AuthProvider'  // Use @ alias
 
 const inter = Inter({ subsets: ['latin'] })
 
