@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/components/AuthProvider'
-import { LoginForm } from '@/components/LoginForm'
-import { RegisterForm } from '@/components/RegisterForm'
-import { UserDashboard } from '@/components/UserDashboard'
-import { AdminDashboard } from '@/components/AdminDashboard'
+import { useAuth } from '../components/AuthProvider'
+import { LoginForm } from '../components/LoginForm'
+import { RegisterForm } from '../components/RegisterForm'
+import { UserDashboard } from '../components/UserDashboard'
+import { AdminDashboard } from '../components/AdminDashboard'
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
