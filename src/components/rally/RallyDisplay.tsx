@@ -152,14 +152,14 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
 
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-3 ml-4">
-                  {registrationOpen && onRegister && (
+                    {registrationOpen && (
                     <button
-                      onClick={() => onRegister(rally.rally_id)}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
+                        onClick={() => window.location.href = `/registration?rallyId=${rally.rally_id}`}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
                     >
-                      Register
+                        Register
                     </button>
-                  )}
+                    )}
                   
                   <button
                     onClick={() => toggleExpanded(rally.rally_id)}

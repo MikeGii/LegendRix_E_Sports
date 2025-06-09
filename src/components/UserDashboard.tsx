@@ -175,7 +175,6 @@ export function UserDashboard() {
               <RallyDisplay 
                 rallies={upcomingRallies}
                 showLimit={3}
-                onRegister={handleRegister}
               />
             )}
           </div>
@@ -188,14 +187,15 @@ export function UserDashboard() {
           <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
             
             {/* Register for Rally Button */}
-            <button 
-              disabled={!canAccessRallies}
-              className={`group relative overflow-hidden rounded-2xl p-8 transition-all duration-300 ${
-                canAccessRallies 
-                  ? 'bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 shadow-lg hover:shadow-green-500/25 hover:scale-105 cursor-pointer' 
-                  : 'bg-slate-700/50 cursor-not-allowed opacity-60'
-              }`}
-            >
+              <button 
+                disabled={!canAccessRallies}
+                onClick={() => canAccessRallies && (window.location.href = '/registration')}
+                className={`group relative overflow-hidden rounded-2xl p-8 transition-all duration-300 ${
+                  canAccessRallies 
+                    ? 'bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 shadow-lg hover:shadow-green-500/25 hover:scale-105 cursor-pointer' 
+                    : 'bg-slate-700/50 cursor-not-allowed opacity-60'
+                }`}
+              >
               <div className="relative z-10 text-center">
                 <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center ${
                   canAccessRallies ? 'bg-white/20' : 'bg-slate-600/30'
