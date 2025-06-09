@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from './AuthProvider'
+import { useView } from './ViewProvider'  // Add this import
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -18,6 +19,7 @@ export function ProtectedRoute({
   requireAdminApproved = true
 }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
+  const { currentView } = useView()  // Add this
   const router = useRouter()
   const pathname = usePathname()
   const [hasChecked, setHasChecked] = useState(false)
@@ -26,6 +28,7 @@ export function ProtectedRoute({
     pathname,
     user: user?.email,
     role: user?.role,
+    currentView,  // Add this
     isLoading,
     hasChecked,
     requiredRole
@@ -42,15 +45,22 @@ export function ProtectedRoute({
         return
       }
 
-      // Check role requirement
-      if (requiredRole && user.role !== requiredRole) {
-        console.log('🛡️ ProtectedRoute - Wrong role, redirecting')
-        if (user.role === 'admin') {
+      // Special handling for admin in driver mode accessing user routes
+      const isAdminAsDriver = user.role === 'admin' && currentView === 'user'
+      
+      // Check role requirement with admin-as-driver logic
+      if (requiredRole) {
+        if (requiredRole === 'user' && !isAdminAsDriver && user.role !== 'user') {
+          console.log('🛡️ ProtectedRoute - User role required, redirecting admin to admin dashboard')
           router.replace('/admin-dashboard')
-        } else {
-          router.replace('/user-dashboard')
+          return
         }
-        return
+        
+        if (requiredRole === 'admin' && user.role !== 'admin') {
+          console.log('🛡️ ProtectedRoute - Admin role required, redirecting to user dashboard')
+          router.replace('/user-dashboard')
+          return
+        }
       }
 
       // For user dashboard, be more lenient with verification requirements
@@ -59,8 +69,14 @@ export function ProtectedRoute({
         return
       }
 
-      // Check email verification requirement for other routes
-      if (requireEmailVerified && !user.emailVerified) {
+      // Special handling for admin as driver - they bypass verification requirements
+      if (isAdminAsDriver) {
+        console.log('🛡️ ProtectedRoute - Admin as driver, bypassing verification requirements')
+        return
+      }
+
+      // Check email verification requirement for other routes (non-admins)
+      if (requireEmailVerified && user.role !== 'admin' && !user.emailVerified) {
         console.log('🛡️ ProtectedRoute - Email not verified, redirecting to user dashboard')
         router.replace('/user-dashboard')
         return
@@ -75,7 +91,7 @@ export function ProtectedRoute({
       
       console.log('🛡️ ProtectedRoute - All checks passed')
     }
-  }, [user, isLoading, router, requiredRole, requireEmailVerified, requireAdminApproved, pathname, hasChecked])
+  }, [user, isLoading, router, requiredRole, requireEmailVerified, requireAdminApproved, pathname, hasChecked, currentView])
 
   // Show loading while checking authentication
   if (isLoading || !hasChecked) {
@@ -96,14 +112,25 @@ export function ProtectedRoute({
     return null
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    console.log('🛡️ ProtectedRoute - Role mismatch, not rendering content')
-    return null
+  // Special handling for admin in driver mode
+  const isAdminAsDriver = user.role === 'admin' && currentView === 'user'
+
+  // Check role requirements with admin-as-driver logic
+  if (requiredRole) {
+    if (requiredRole === 'user' && !isAdminAsDriver && user.role !== 'user') {
+      console.log('🛡️ ProtectedRoute - Role mismatch (need user), not rendering content')
+      return null
+    }
+    
+    if (requiredRole === 'admin' && user.role !== 'admin') {
+      console.log('🛡️ ProtectedRoute - Role mismatch (need admin), not rendering content')
+      return null
+    }
   }
 
   // For non-user-dashboard routes, check verification requirements
-  if (pathname !== '/user-dashboard') {
-    if (requireEmailVerified && !user.emailVerified) {
+  if (pathname !== '/user-dashboard' && !isAdminAsDriver) {
+    if (requireEmailVerified && user.role !== 'admin' && !user.emailVerified) {
       console.log('🛡️ ProtectedRoute - Email not verified, not rendering content')
       return null
     }
