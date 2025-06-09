@@ -18,9 +18,20 @@ body {
   animation: spin 1s linear infinite;
 }
 
+/* Dark theme gradient backgrounds */
+.auth-gradient {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e  50%, #0f0f23 100%);
+}
+
+.card-gradient {
+  background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
 /* Custom button hover effects */
 .btn-primary {
-  @apply px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200;
+  @apply px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-200 font-medium;
 }
 
 .btn-success {
@@ -31,7 +42,16 @@ body {
   @apply px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200;
 }
 
-/* Form input styles */
+/* Dark theme form input styles */
+.form-input-dark {
+  @apply w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
+}
+
+.form-input-dark:focus {
+  @apply bg-gray-800/70;
+}
+
+/* Regular form input styles */
 .form-input {
   @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200;
 }
@@ -73,4 +93,9 @@ body {
 
 .data-table tr:hover {
   @apply bg-gray-50;
+}
+
+/* Logo placeholder styles */
+.logo-placeholder {
+  @apply w-24 h-24 bg-gray-700 rounded-lg flex items-center justify-center text-gray-400 text-xs font-mono;
 }

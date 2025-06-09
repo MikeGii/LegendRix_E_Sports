@@ -3,7 +3,7 @@
 import { useAuth } from './AuthProvider'
 
 export function UserDashboard() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
 
   if (!user) return null
 
@@ -33,17 +33,9 @@ export function UserDashboard() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.name}!</h1>
-            <p className="text-gray-600">User Dashboard</p>
-          </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            Logout
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.name}!</h1>
+          <p className="text-gray-600">User Dashboard</p>
         </div>
 
         {/* Account Status */}

@@ -1,6 +1,5 @@
 'use client'
 
-import { useAuth } from './AuthProvider'
 import { useState, useEffect } from 'react'
 
 interface PendingUser {
@@ -12,7 +11,6 @@ interface PendingUser {
 }
 
 export function AdminDashboard() {
-  const { user, logout } = useAuth()
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -53,7 +51,6 @@ export function AdminDashboard() {
       })
 
       if (response.ok) {
-        // Refresh the pending users list
         fetchPendingUsers()
       }
     } catch (error) {
@@ -61,22 +58,12 @@ export function AdminDashboard() {
     }
   }
 
-  if (!user) return null
-
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600">Welcome, {user.name}</p>
-          </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-          >
-            Logout
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600">Manage user registrations and approvals</p>
         </div>
 
         {/* Admin Stats */}
@@ -171,25 +158,6 @@ export function AdminDashboard() {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Coming Soon Admin Features */}
-      <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-        <h2 className="text-xl font-semibold mb-4">🚧 Coming Soon - Admin Features</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-medium mb-2">🏆 Championship Management</h3>
-            <p className="text-sm text-gray-600">Create and manage rally championships</p>
-          </div>
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-medium mb-2">📊 Registration Reports</h3>
-            <p className="text-sm text-gray-600">View detailed registration analytics</p>
-          </div>
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-medium mb-2">📧 Email Management</h3>
-            <p className="text-sm text-gray-600">Send announcements to users</p>
-          </div>
-        </div>
       </div>
     </div>
   )
