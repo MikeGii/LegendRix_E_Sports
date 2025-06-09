@@ -49,6 +49,13 @@ export default function RallyCreationPage() {
   const [filteredTypes, setFilteredTypes] = useState<RallyType[]>([])
   const [filteredEvents, setFilteredEvents] = useState<RallyEvent[]>([])
 
+  // State for editing game
+  const [editingGame, setEditingGame] = useState<{
+    game: RallyGame
+    existingTypes: RallyType[]
+    existingEvents: RallyEvent[]
+  } | null>(null)
+
   const [messages, setMessages] = useState<{type: 'success' | 'error' | 'warning' | 'info', text: string} | null>(null)
 
   // Use the rally API hook
@@ -59,6 +66,8 @@ export default function RallyCreationPage() {
     fetchGameData,
     createGameSetup,
     createRally,
+    addRallyTypes,
+    addRallyEvents,
     clearError
   } = useRallyApi()
 
@@ -175,6 +184,68 @@ export default function RallyCreationPage() {
     }
   }
 
+  const handleEditGameSettings = async (gameId: string, gameData: {
+    newRallyTypes: string[]
+    newRallyEvents: string[]
+  }) => {
+    if (gameData.newRallyTypes.length === 0 && gameData.newRallyEvents.length === 0) {
+      showMessage('error', 'At least one new rally type or event is required')
+      return
+    }
+    
+    try {
+      console.log('Adding to existing game:', gameData)
+      
+      const promises = []
+      
+      // Add new types if any
+      if (gameData.newRallyTypes.length > 0) {
+        promises.push(addRallyTypes(gameId, gameData.newRallyTypes))
+      }
+      
+      // Add new events if any
+      if (gameData.newRallyEvents.length > 0) {
+        promises.push(addRallyEvents(gameId, gameData.newRallyEvents))
+      }
+      
+      await Promise.all(promises)
+      
+      console.log('Successfully added new items to game')
+      showMessage('success', 'New rally types and events added successfully!')
+      
+      // Cancel edit mode and refresh data
+      setEditingGame(null)
+      await loadAllData()
+    } catch (err) {
+      console.error('Failed to add to existing game:', err)
+      // Error is already handled by the hook and will show via useEffect
+    }
+  }
+
+  const handleEditGame = async (game: RallyGame) => {
+    try {
+      console.log('Loading game data for editing:', game.game_name)
+      const { types, events } = await fetchGameData(game.id)
+      
+      setEditingGame({
+        game,
+        existingTypes: types,
+        existingEvents: events
+      })
+      
+      // Switch to game settings tab
+      setActiveTab('game-settings')
+      
+      console.log('Game data loaded for editing - Types:', types.length, 'Events:', events.length)
+    } catch (err) {
+      console.error('Failed to load game data for editing:', err)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingGame(null)
+  }
+
   const tabs = [
     { id: 'create-rally', label: 'Create Rally', icon: '🏁' },
     { id: 'game-settings', label: 'Game Settings', icon: '⚙️' }
@@ -223,7 +294,11 @@ export default function RallyCreationPage() {
               <GameSettingsForm
                 games={games}
                 isLoading={isLoading}
+                editingGame={editingGame}
                 onSubmit={handleSaveGameSettings}
+                onSubmitEdit={handleEditGameSettings}
+                onCancelEdit={handleCancelEdit}
+                onEditGame={handleEditGame}
               />
             )}
           </div>

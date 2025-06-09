@@ -252,6 +252,56 @@ export function useRallyApi() {
     }
   }, [])
 
+  // Add rally types to existing game
+  const addRallyTypes = useCallback(async (gameId: string, rallyTypes: string[]): Promise<RallyType[]> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<RallyType[]> = await apiCall('/api/rally/types/add', {
+        method: 'POST',
+        body: JSON.stringify({ gameId, rallyTypes }),
+      })
+      
+      if (response.success && response.data) {
+        return response.data
+      } else {
+        throw new Error(response.error || 'Failed to add rally types')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Add rally events to existing game
+  const addRallyEvents = useCallback(async (gameId: string, rallyEvents: string[]): Promise<RallyEvent[]> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<RallyEvent[]> = await apiCall('/api/rally/events/add', {
+        method: 'POST',
+        body: JSON.stringify({ gameId, rallyEvents }),
+      })
+      
+      if (response.success && response.data) {
+        return response.data
+      } else {
+        throw new Error(response.error || 'Failed to add rally events')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   // Utility function to fetch game data (types + events) for a specific game
   const fetchGameData = useCallback(async (gameId: string): Promise<{
     types: RallyType[]
@@ -289,6 +339,8 @@ export function useRallyApi() {
     createGameSetup,
     createRally,
     fetchRallies,
+    addRallyTypes,
+    addRallyEvents,
     
     // Utility
     clearError: () => setError(null),
