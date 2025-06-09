@@ -24,15 +24,11 @@ export function ProtectedRoute({
   const pathname = usePathname()
   const [hasChecked, setHasChecked] = useState(false)
 
-  // Calculate if admin is in driver mode
-  const isAdminAsDriver = user?.role === 'admin' && currentView === 'user'
-
   console.log('🛡️ ProtectedRoute -', {
     pathname,
     user: user?.email,
     role: user?.role,
     currentView,
-    isAdminAsDriver,
     isLoading,
     hasChecked,
     requiredRole,
@@ -40,36 +36,29 @@ export function ProtectedRoute({
     adminApproved: user?.adminApproved
   })
 
-    useEffect(() => {
+  useEffect(() => {
     if (!isLoading && !hasChecked) {
-        setHasChecked(true)
-        
-        // No user logged in
-        if (!user) {
+      setHasChecked(true)
+      
+      // No user logged in
+      if (!user) {
         console.log('🛡️ ProtectedRoute - No user, redirecting to login')
         router.replace('/')
         return
-        }
+      }
 
-        // Check role requirement with admin-as-driver logic
-        if (requiredRole) {
-        // If requiring user role
-        if (requiredRole === 'user') {
-            // Allow if user is actually a user OR admin in driver mode
-            if (user.role !== 'user' && !isAdminAsDriver) {
-            console.log('🛡️ ProtectedRoute - User role required but user is admin not in driver mode, redirecting')
-            router.replace('/admin-dashboard')
-            return
-            }
-        }
-        
-        // If requiring admin role - always allow actual admins regardless of current view
-        if (requiredRole === 'admin' && user.role !== 'admin') {
-            console.log('🛡️ ProtectedRoute - Admin role required, redirecting to user dashboard')
-            router.replace('/user-dashboard')
-            return
-        }
-        }
+      // ADMINS CAN ACCESS EVERYTHING - no role restrictions for admins
+      if (user.role === 'admin') {
+        console.log('🛡️ ProtectedRoute - Admin user, access granted to all routes')
+        return
+      }
+
+      // For regular users, check role requirements
+      if (requiredRole === 'admin') {
+        console.log('🛡️ ProtectedRoute - Admin role required but user is not admin, redirecting to user dashboard')
+        router.replace('/user-dashboard')
+        return
+      }
 
       // For user dashboard, be more lenient with verification requirements
       if (pathname === '/user-dashboard') {
@@ -77,21 +66,15 @@ export function ProtectedRoute({
         return
       }
 
-      // Special handling for admin as driver - they bypass verification requirements
-      if (isAdminAsDriver) {
-        console.log('🛡️ ProtectedRoute - Admin as driver, bypassing verification requirements')
-        return
-      }
-
-      // Check email verification requirement for other routes (non-admins)
-      if (requireEmailVerified && user.role !== 'admin' && !user.emailVerified) {
+      // Check email verification requirement for regular users
+      if (requireEmailVerified && !user.emailVerified) {
         console.log('🛡️ ProtectedRoute - Email not verified, redirecting to user dashboard')
         router.replace('/user-dashboard')
         return
       }
 
-      // Check admin approval requirement (except for admins)
-      if (requireAdminApproved && user.role !== 'admin' && !user.adminApproved) {
+      // Check admin approval requirement for regular users
+      if (requireAdminApproved && !user.adminApproved) {
         console.log('🛡️ ProtectedRoute - Not approved, redirecting to user dashboard')
         router.replace('/user-dashboard')
         return
@@ -99,9 +82,9 @@ export function ProtectedRoute({
       
       console.log('🛡️ ProtectedRoute - All checks passed')
     }
-  }, [user, isLoading, router, requiredRole, requireEmailVerified, requireAdminApproved, pathname, hasChecked, currentView, isAdminAsDriver])
+  }, [user, isLoading, router, requiredRole, requireEmailVerified, requireAdminApproved, pathname, hasChecked])
 
-  // Show loading while checking authentication or view state
+  // Show loading while checking authentication
   if (isLoading || !hasChecked) {
     console.log('🛡️ ProtectedRoute - Showing loading state')
     return (
@@ -120,35 +103,26 @@ export function ProtectedRoute({
     return null
   }
 
-  // Check role requirements with admin-as-driver logic
-    if (requiredRole) {
-    if (requiredRole === 'user') {
-        // Allow if user is actually a user OR admin in driver mode
-        if (user.role !== 'user' && !isAdminAsDriver) {
-        console.log('🛡️ ProtectedRoute - Role mismatch (need user), not rendering content', {
-            userRole: user.role,
-            isAdminAsDriver,
-            currentView
-        })
-        return null
-        }
-    }
-    
-    // For admin role requirement - always allow actual admins regardless of current view
-    if (requiredRole === 'admin' && user.role !== 'admin') {
-        console.log('🛡️ ProtectedRoute - Role mismatch (need admin), not rendering content')
-        return null
-    }
-    }
+  // ADMINS CAN ACCESS EVERYTHING - no restrictions in render
+  if (user.role === 'admin') {
+    console.log('🛡️ ProtectedRoute - Admin user, rendering content')
+    return <>{children}</>
+  }
 
-  // For non-user-dashboard routes, check verification requirements
-  if (pathname !== '/user-dashboard' && !isAdminAsDriver) {
-    if (requireEmailVerified && user.role !== 'admin' && !user.emailVerified) {
+  // For regular users, check requirements
+  if (requiredRole === 'admin') {
+    console.log('🛡️ ProtectedRoute - Admin role required but user is not admin, not rendering content')
+    return null
+  }
+
+  // For non-user-dashboard routes, check verification requirements for regular users
+  if (pathname !== '/user-dashboard') {
+    if (requireEmailVerified && !user.emailVerified) {
       console.log('🛡️ ProtectedRoute - Email not verified, not rendering content')
       return null
     }
     
-    if (requireAdminApproved && user.role !== 'admin' && !user.adminApproved) {
+    if (requireAdminApproved && !user.adminApproved) {
       console.log('🛡️ ProtectedRoute - Not approved, not rendering content')
       return null
     }
