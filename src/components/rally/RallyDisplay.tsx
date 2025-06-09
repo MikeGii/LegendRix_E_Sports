@@ -146,31 +146,7 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
                       </span>
                     </div>
 
-                    {/* Quick Events Preview */}
-                    {rally.events && rally.events.length > 0 && (
-                      <div className="flex items-center space-x-2 text-slate-300">
-                        <span className="text-blue-400">🏁</span>
-                        <span className="font-medium">Events:</span>
-                        <div className="flex flex-wrap gap-2">
-                          {rally.events.slice(0, 2).map((event, index) => (
-                            <span key={event.event_id} className="flex items-center space-x-1">
-                              <span className="text-sm text-slate-400">
-                                {getSurfaceTypeIcon(event.surface_type)}
-                              </span>
-                              <span className="text-sm">{event.event_name}</span>
-                              {event.country && (
-                                <span className="text-xs text-slate-500">({event.country})</span>
-                              )}
-                            </span>
-                          ))}
-                          {rally.events.length > 2 && (
-                            <span className="text-sm text-slate-500">
-                              +{rally.events.length - 2} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    
                   </div>
                 </div>
 

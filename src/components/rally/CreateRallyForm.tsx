@@ -92,6 +92,12 @@ export function CreateRallyForm({
     return filteredEvents.filter(event => !selectedEventIds.includes(event.id))
   }
 
+  // Check if we can add more events
+  const canAddMoreEvents = () => {
+    const selectedEventIds = rallyForm.eventIds.filter(id => id.trim() !== '')
+    return selectedEventIds.length < filteredEvents.length
+  }
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-white mb-6">Create New Rally</h2>
@@ -156,8 +162,8 @@ export function CreateRallyForm({
                     </select>
                   </div>
                   
-                  {/* Add button - show on last non-empty field */}
-                  {index === rallyForm.eventIds.length - 1 && eventId.trim() && availableEvents.length > rallyForm.eventIds.filter(id => id.trim()).length && (
+                  {/* Add button - show on last field if current field has value and we can add more */}
+                  {index === rallyForm.eventIds.length - 1 && eventId.trim() && canAddMoreEvents() && (
                     <button
                       type="button"
                       onClick={addEventSelection}
@@ -200,6 +206,15 @@ export function CreateRallyForm({
                     ) : null
                   })}
               </div>
+            </div>
+          )}
+
+          {/* Show info when all events are selected */}
+          {!canAddMoreEvents() && rallyForm.eventIds.filter(id => id.trim()).length === filteredEvents.length && (
+            <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <p className="text-green-400 text-sm">
+                🎉 All available events have been selected! ({filteredEvents.length} events)
+              </p>
             </div>
           )}
         </div>
