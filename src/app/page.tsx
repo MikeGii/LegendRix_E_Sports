@@ -1,31 +1,41 @@
+// Fix 1: Update src/app/page.tsx to prevent redirect loops
 // src/app/page.tsx
 'use client'
 
 import { useAuth } from '@/components/AuthProvider'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { LoginForm } from '@/components/LoginForm'
 import { RegisterForm } from '@/components/RegisterForm'
-import { UserDashboard } from '@/components/UserDashboard'
-import { AdminDashboard } from '@/components/AdminDashboard'
 
 type AuthView = 'login' | 'register'
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
   const [authView, setAuthView] = useState<AuthView>('login')
+  const [hasRedirected, setHasRedirected] = useState(false)
+  const router = useRouter()
 
   // Debug logging
-  console.log('🔍 HomePage Debug:', {
-    user,
-    isLoading,
-    userRole: user?.role,
-    userEmail: user?.email,
-    authView
-  })
+  console.log('🏠 HomePage - user:', user, 'isLoading:', isLoading, 'hasRedirected:', hasRedirected)
+
+  // Redirect authenticated users to their appropriate dashboard
+  useEffect(() => {
+    if (!isLoading && user && !hasRedirected) {
+      console.log('🔄 HomePage - Redirecting user:', user.email, 'role:', user.role)
+      setHasRedirected(true)
+      
+      if (user.role === 'admin') {
+        router.replace('/admin-dashboard')
+      } else {
+        router.replace('/user-dashboard')
+      }
+    }
+  }, [user, isLoading, hasRedirected, router])
 
   // Loading state
   if (isLoading) {
-    console.log('⏳ Showing loading state')
+    console.log('⏳ HomePage - Showing loading state')
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -36,51 +46,21 @@ export default function HomePage() {
     )
   }
 
-  // User is logged in - show appropriate dashboard
+  // Show redirecting message for authenticated users
   if (user) {
-    console.log('👤 User logged in, showing dashboard for role:', user.role)
-    
+    console.log('👤 HomePage - User authenticated, showing redirect message')
     return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-blue-600 text-white p-4 shadow-lg">
-          <div className="container mx-auto flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold">🏁 E-WRC Rally Registration</h1>
-              <span className="text-blue-200 text-sm">
-                {user.role === 'admin' ? 'Admin Dashboard' : 'User Dashboard'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-blue-200">Welcome, {user.name}</span>
-              <button
-                onClick={() => {
-                  console.log('🚪 Logging out...')
-                  localStorage.removeItem('auth_token')
-                  window.location.reload()
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </nav>
-        <main className="container mx-auto px-4 py-8">
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-            🔍 Debug Info: Rendering {user.role} dashboard for {user.email}
-          </div>
-          {user.role === 'admin' ? (
-            <AdminDashboard />
-          ) : (
-            <UserDashboard />
-          )}
-        </main>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-400">Redirecting to dashboard...</p>
+        </div>
       </div>
     )
   }
 
-  // User is not logged in - show dark auth page
-  console.log('🔐 No user, showing auth page')
+  // Show login/register forms for unauthenticated users
+  console.log('🔐 HomePage - Showing auth forms')
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-950 to-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">

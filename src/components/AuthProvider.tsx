@@ -17,7 +17,11 @@ interface User {
 interface AuthContextType {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>
+  login: (email: string, password: string) => Promise<{ 
+    success: boolean; 
+    message: string; 
+    user?: User  // Add optional user property
+  }>
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; message: string }>
   logout: () => void
   refreshUser: () => Promise<void>
@@ -60,14 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setUser(data.user)
         
-        // Redirect based on user role
-        if (data.user.role === 'admin') {
-          router.push('/admin-dashboard')
-        } else {
-          router.push('/user-dashboard')
-        }
-        
-        return { success: true, message: data.message }
+        // Return user data for navigation
+        return { success: true, message: data.message, user: data.user }
       } else {
         return { success: false, message: data.error || 'Login failed' }
       }
@@ -111,10 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = localStorage.getItem('auth_token')
       if (!token) {
+        console.log('🔄 AuthProvider - No token found')
         setIsLoading(false)
         return
       }
 
+      console.log('🔄 AuthProvider - Refreshing user with token')
       const response = await fetch('/api/auth/me', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -123,15 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json()
+        console.log('🔄 AuthProvider - User refreshed:', data.user.email)
         setUser(data.user)
       } else {
+        console.log('🔄 AuthProvider - Token invalid, clearing auth')
         // Token is invalid, remove it
         localStorage.removeItem('auth_token')
         document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
         setUser(null)
       }
     } catch (error) {
-      console.error('Refresh user error:', error)
+      console.error('🔄 AuthProvider - Refresh error:', error)
       localStorage.removeItem('auth_token')
       document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
       setUser(null)

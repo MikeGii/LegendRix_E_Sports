@@ -1,9 +1,9 @@
-// src/components/LoginForm.tsx
 'use client'
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from './AuthProvider'
+import { useRouter } from 'next/navigation'
 
 interface LoginFormData {
   email: string
@@ -18,6 +18,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const router = useRouter()
   
   const {
     register,
@@ -29,13 +30,29 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     setIsLoading(true)
     setMessage('')
     
+    console.log('🔐 LoginForm - Attempting login for:', data.email)
+    
     const result = await login(data.email, data.password)
     
-    if (!result.success) {
+    console.log('🔐 LoginForm - Login result:', result)
+    
+    if (result.success && result.user) {
+      console.log('✅ LoginForm - Login successful, redirecting user:', result.user.role)
+      
+      // Use replace instead of push to prevent back button issues
+      if (result.user.role === 'admin') {
+        router.replace('/admin-dashboard')
+      } else {
+        router.replace('/user-dashboard')
+      }
+    } else {
+      console.log('❌ LoginForm - Login failed:', result.message)
       setMessage(result.message)
+      setIsLoading(false)
     }
-    // No need to handle success here as AuthProvider handles redirect
-    setIsLoading(false)
+    
+    // Don't set loading to false here if login was successful
+    // Let the redirect handle the state change
   }
 
   return (
