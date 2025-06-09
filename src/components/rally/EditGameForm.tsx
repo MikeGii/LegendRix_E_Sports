@@ -1,4 +1,3 @@
-
 // src/components/rally/EditGameForm.tsx
 'use client'
 
@@ -43,14 +42,15 @@ interface EditGameFormProps {
     newRallyTypes: string[]
     newRallyEvents: string[]
     updatedTypes: { id: string; name: string }[]
-    updatedEvents: { id: string; name: string; country?: string; surface_type?: string }[]
+    updatedEvents: { id: string; name: string }[]
     deletedTypeIds: string[]
     deletedEventIds: string[]
-  }) => void
+  }, shouldExit: boolean) => void
   onCancel: () => void
+  onDataRefresh?: (updatedData: { types: RallyType[], events: RallyEvent[] }) => void
 }
 
-export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: EditGameFormProps) {
+export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel, onDataRefresh }: EditGameFormProps) {
   const [activeSection, setActiveSection] = useState<'types' | 'events'>('types')
   
   // State for existing items
@@ -65,9 +65,13 @@ export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: Edi
   const [deletedTypeIds, setDeletedTypeIds] = useState<string[]>([])
   const [deletedEventIds, setDeletedEventIds] = useState<string[]>([])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  // Update local state when editingGame changes (after refresh)
+  useEffect(() => {
+    setExistingTypes(editingGame.existingTypes)
+    setExistingEvents(editingGame.existingEvents)
+  }, [editingGame.existingTypes, editingGame.existingEvents])
+
+  const handleSave = (shouldExit: boolean = false) => {
     const filledNewTypes = newTypes.filter(type => type.trim() !== '')
     const filledNewEvents = newEvents.filter(event => event.trim() !== '')
     
@@ -78,9 +82,7 @@ export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: Edi
     
     const updatedEvents = existingEvents.map(event => ({
       id: event.id,
-      name: event.event_name,
-      country: event.country,
-      surface_type: event.surface_type
+      name: event.event_name
     }))
     
     onSubmit({
@@ -90,7 +92,22 @@ export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: Edi
       updatedEvents,
       deletedTypeIds,
       deletedEventIds
-    })
+    }, shouldExit)
+
+    // If not exiting, reset the new items arrays to clear the form
+    if (!shouldExit) {
+      setNewTypes([''])
+      setNewEvents([''])
+      // Reset deleted items since they'll be processed
+      setDeletedTypeIds([])
+      setDeletedEventIds([])
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Default submit behavior is save and continue
+    handleSave(false)
   }
 
   // New Types Management
@@ -142,9 +159,9 @@ export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: Edi
   }
 
   // Existing Events Management
-  const updateExistingEvent = (id: string, field: string, value: string) => {
+  const updateExistingEvent = (id: string, newName: string) => {
     setExistingEvents(prev => prev.map(event => 
-      event.id === id ? { ...event, [field]: value } : event
+      event.id === id ? { ...event, event_name: newName } : event
     ))
   }
 
@@ -303,39 +320,21 @@ export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: Edi
                 <h4 className="text-lg font-semibold text-white mb-4">Existing Rally Events</h4>
                 <div className="space-y-3">
                   {existingEvents.map((event) => (
-                    <div key={event.id} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600/50">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <input
-                          type="text"
-                          value={event.event_name}
-                          onChange={(e) => updateExistingEvent(event.id, 'event_name', e.target.value)}
-                          className="flex-1 px-3 py-2 bg-slate-600/50 border border-slate-500 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Event name"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => deleteExistingEvent(event.id)}
-                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-all duration-200"
-                        >
-                          🗑️ Delete
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="text"
-                          value={event.country || ''}
-                          onChange={(e) => updateExistingEvent(event.id, 'country', e.target.value)}
-                          className="px-3 py-2 bg-slate-600/50 border border-slate-500 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Country (optional)"
-                        />
-                        <input
-                          type="text"
-                          value={event.surface_type || ''}
-                          onChange={(e) => updateExistingEvent(event.id, 'surface_type', e.target.value)}
-                          className="px-3 py-2 bg-slate-600/50 border border-slate-500 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Surface type (optional)"
-                        />
-                      </div>
+                    <div key={event.id} className="flex items-center space-x-3 p-4 bg-slate-700/50 rounded-lg border border-slate-600/50">
+                      <input
+                        type="text"
+                        value={event.event_name}
+                        onChange={(e) => updateExistingEvent(event.id, e.target.value)}
+                        className="flex-1 px-3 py-2 bg-slate-600/50 border border-slate-500 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Event name"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => deleteExistingEvent(event.id)}
+                        className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-all duration-200"
+                      >
+                        🗑️ Delete
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -392,23 +391,44 @@ export function EditGameForm({ editingGame, isLoading, onSubmit, onCancel }: Edi
             Cancel
           </button>
           
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="px-8 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-medium transition-all duration-200"
-          >
-            {isLoading ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                <span>Saving Changes...</span>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <span>💾</span>
-                <span>Save Changes</span>
-              </div>
-            )}
-          </button>
+          <div className="flex space-x-3">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-medium transition-all duration-200"
+            >
+              {isLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span>💾</span>
+                  <span>Save</span>
+                </div>
+              )}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              disabled={isLoading}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-medium transition-all duration-200"
+            >
+              {isLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Saving & Exiting...</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span>💾</span>
+                  <span>Save & Exit</span>
+                </div>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Changes Summary */}

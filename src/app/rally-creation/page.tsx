@@ -70,6 +70,10 @@ export default function RallyCreationPage() {
     createRally,
     addRallyTypes,
     addRallyEvents,
+    updateRallyType,
+    updateRallyEvent,
+    deleteRallyType,
+    deleteRallyEvent,
     clearError
   } = useRallyApi()
 
@@ -211,10 +215,10 @@ export default function RallyCreationPage() {
     newRallyTypes: string[]
     newRallyEvents: string[]
     updatedTypes: { id: string; name: string }[]
-    updatedEvents: { id: string; name: string; country?: string; surface_type?: string }[]
+    updatedEvents: { id: string; name: string }[]
     deletedTypeIds: string[]
     deletedEventIds: string[]
-  }) => {
+  }, shouldExit: boolean) => {
     if (!editingGame) return
     
     try {
@@ -232,21 +236,66 @@ export default function RallyCreationPage() {
         promises.push(addRallyEvents(editingGame.game.id, gameData.newRallyEvents))
       }
       
-      // TODO: Add API calls for updating and deleting existing items
-      // These would be new API endpoints that need to be created
+      // Update existing types
+      for (const type of gameData.updatedTypes) {
+        const originalType = editingGame.existingTypes.find(t => t.id === type.id)
+        if (originalType && originalType.type_name !== type.name) {
+          promises.push(updateRallyType(type.id, type.name))
+        }
+      }
+      
+      // Update existing events
+      for (const event of gameData.updatedEvents) {
+        const originalEvent = editingGame.existingEvents.find(e => e.id === event.id)
+        if (originalEvent && originalEvent.event_name !== event.name) {
+          promises.push(updateRallyEvent(event.id, event.name))
+        }
+      }
+      
+      // Delete types
+      for (const typeId of gameData.deletedTypeIds) {
+        promises.push(deleteRallyType(typeId))
+      }
+      
+      // Delete events
+      for (const eventId of gameData.deletedEventIds) {
+        promises.push(deleteRallyEvent(eventId))
+      }
       
       await Promise.all(promises)
       
       console.log('Successfully updated game')
-      showMessage('success', 'Game updated successfully!')
       
-      // Cancel edit mode and refresh data
-      setEditingGame(null)
-      setActiveTab('games')
-      await loadAllData()
+      if (shouldExit) {
+        showMessage('success', 'Game updated successfully!')
+        // Exit edit mode and refresh data
+        setEditingGame(null)
+        setActiveTab('games')
+        await loadAllData()
+      } else {
+        showMessage('success', 'Changes saved! You can continue editing.')
+        // Refresh the editing game data without exiting
+        const { types, events } = await fetchGameData(editingGame.game.id)
+        setEditingGame({
+          ...editingGame,
+          existingTypes: types,
+          existingEvents: events
+        })
+      }
     } catch (err) {
       console.error('Failed to update game:', err)
     }
+  }
+
+  const handleDataRefresh = async (updatedData: { types: RallyType[], events: RallyEvent[] }) => {
+    if (!editingGame) return
+    
+    // Update the editing game with fresh data
+    setEditingGame({
+      ...editingGame,
+      existingTypes: updatedData.types,
+      existingEvents: updatedData.events
+    })
   }
 
   const handleCancelEdit = () => {
@@ -287,10 +336,18 @@ export default function RallyCreationPage() {
 
           {/* Tab Navigation */}
           <TabNavigation
-            tabs={tabs.filter(tab => 
-              tab.id !== 'add-game' || activeTab === 'add-game' ||
-              tab.id !== 'edit-game' || activeTab === 'edit-game'
-            )}
+            tabs={tabs.filter(tab => {
+              // Always show create-rally and games tabs
+              if (tab.id === 'create-rally' || tab.id === 'games') return true
+              
+              // Show add-game tab only when active or when no editing
+              if (tab.id === 'add-game') return activeTab === 'add-game' && !editingGame
+              
+              // Show edit-game tab only when editing
+              if (tab.id === 'edit-game') return activeTab === 'edit-game' && editingGame
+              
+              return false
+            })}
             activeTab={activeTab}
             onTabChange={(tabId) => setActiveTab(tabId as TabType)}
           />
@@ -337,6 +394,7 @@ export default function RallyCreationPage() {
                 isLoading={isLoading}
                 onSubmit={handleUpdateGame}
                 onCancel={handleCancelEdit}
+                onDataRefresh={handleDataRefresh}
               />
             )}
           </div>

@@ -357,6 +357,100 @@ export function useRallyApi() {
     }
   }, [])
 
+  // Update rally type
+  const updateRallyType = useCallback(async (typeId: string, typeName: string): Promise<RallyType> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<RallyType> = await apiCall(`/api/rally/types/${typeId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ typeName }),
+      })
+      
+      if (response.success && response.data) {
+        return response.data
+      } else {
+        throw new Error(response.error || 'Failed to update rally type')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Update rally event
+  const updateRallyEvent = useCallback(async (eventId: string, eventName: string): Promise<RallyEvent> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<RallyEvent> = await apiCall(`/api/rally/events/${eventId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ eventName }),
+      })
+      
+      if (response.success && response.data) {
+        return response.data
+      } else {
+        throw new Error(response.error || 'Failed to update rally event')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Delete rally type
+  const deleteRallyType = useCallback(async (typeId: string): Promise<void> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<void> = await apiCall(`/api/rally/types/${typeId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete rally type')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Delete rally event
+  const deleteRallyEvent = useCallback(async (eventId: string): Promise<void> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<void> = await apiCall(`/api/rally/events/${eventId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete rally event')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   return {
     // State
     isLoading,
@@ -373,6 +467,10 @@ export function useRallyApi() {
     fetchRallies,
     addRallyTypes,
     addRallyEvents,
+    updateRallyType,
+    updateRallyEvent,
+    deleteRallyType,
+    deleteRallyEvent,
     
     // Utility
     clearError: () => setError(null),
