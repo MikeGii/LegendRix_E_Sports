@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (email: string, password: string) => {
+      const login = async (email: string, password: string) => {
     try {
       console.log('🔐 AuthProvider - attempting login for:', email)
       
@@ -60,30 +60,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🔐 AuthProvider - login response:', data)
 
       if (response.ok && data.success) {
-        console.log('🔐 AuthProvider - login successful, setting tokens')
+        console.log('🔐 AuthProvider - login successful, setting tokens and user state')
         
         // Store token in localStorage
         localStorage.setItem('auth_token', data.token)
         
-        // FIXED: Set cookie properly for middleware
-        // Remove any existing auth_token cookie first
+        // Set cookie properly for middleware
         document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-        
-        // Set new cookie with proper format
         const cookieValue = `auth_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`
         document.cookie = cookieValue
         
-        console.log('🔐 AuthProvider - setting cookie:', cookieValue)
+        console.log('🔐 AuthProvider - tokens set, updating user state')
         
-        // Wait a moment for cookie to be set
+        // Wait a tiny bit to ensure tokens are set, then update user state
         await new Promise(resolve => setTimeout(resolve, 100))
         
-        // Verify cookie was set
-        const cookieCheck = document.cookie.includes('auth_token')
-        console.log('🔐 AuthProvider - cookie verification:', cookieCheck)
-        console.log('🔐 AuthProvider - all cookies:', document.cookie)
-        
+        // Set user state to trigger redirect
         setUser(data.user)
+        
+        console.log('🔐 AuthProvider - user state updated successfully')
         
         // Return user data for navigation
         return { success: true, message: data.message, user: data.user }

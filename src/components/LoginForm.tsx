@@ -11,9 +11,11 @@ interface LoginFormData {
 
 interface LoginFormProps {
   onSwitchToRegister: () => void
+  onLoginStart: () => void
+  onLoginError: () => void
 }
 
-export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onLoginStart, onLoginError }: LoginFormProps) {
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -27,28 +29,30 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setMessage('')
+    onLoginStart() // Trigger the parent loading state
     
     console.log('🔐 LoginForm - Attempting login for:', data.email)
     
-    const result = await login(data.email, data.password)
-    
-    console.log('🔐 LoginForm - Login result:', result)
-    
-    if (result.success && result.user) {
-      console.log('✅ LoginForm - Login successful, redirecting...')
+    try {
+      const result = await login(data.email, data.password)
       
-      // Simple redirect after successful login
-      const targetUrl = result.user.role === 'admin' ? '/admin-dashboard' : '/user-dashboard'
+      console.log('🔐 LoginForm - Login result:', result)
       
-      // Small delay to ensure state is updated, then redirect
-      setTimeout(() => {
-        window.location.href = targetUrl
-      }, 300)
-      
-    } else {
-      console.log('❌ LoginForm - Login failed:', result.message)
-      setMessage(result.message)
+      if (result.success && result.user) {
+        console.log('✅ LoginForm - Login successful, maintaining loading state')
+        // Keep loading state active - HomePage will handle the redirect
+        // Don't call setIsLoading(false) here for successful login
+      } else {
+        console.log('❌ LoginForm - Login failed:', result.message)
+        setMessage(result.message)
+        setIsLoading(false)
+        onLoginError() // Reset parent loading state on error
+      }
+    } catch (error) {
+      console.error('🔐 LoginForm - Unexpected error:', error)
+      setMessage('An unexpected error occurred. Please try again.')
       setIsLoading(false)
+      onLoginError()
     }
   }
 
@@ -58,6 +62,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
         <input
           type="email"
           placeholder="Email address"
+          disabled={isLoading}
           {...register('email', {
             required: 'Email is required',
             pattern: {
@@ -65,7 +70,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
               message: 'Invalid email address'
             }
           })}
-          className="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 focus:bg-gray-900"
+          className="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 focus:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {errors.email && (
           <p className="mt-2 text-sm text-red-400">{errors.email.message}</p>
@@ -76,6 +81,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
         <input
           type="password"
           placeholder="Password"
+          disabled={isLoading}
           {...register('password', {
             required: 'Password is required',
             minLength: {
@@ -83,7 +89,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
               message: 'Password must be at least 6 characters'
             }
           })}
-          className="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 focus:bg-gray-900"
+          className="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 focus:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {errors.password && (
           <p className="mt-2 text-sm text-red-400">{errors.password.message}</p>
@@ -93,12 +99,12 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-black transition-all duration-200 font-medium shadow-lg"
+        className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-black transition-all duration-200 font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
       >
         {isLoading ? (
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-            Signing in...
+            Authenticating...
           </div>
         ) : (
           'Sign In'
@@ -107,7 +113,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
       {/* Error Message */}
       {message && (
-        <div className="p-3 rounded-lg bg-red-950/80 border border-red-800/50">
+        <div className="p-3 rounded-lg bg-red-950/80 border border-red-800/50 animate-pulse">
           <p className="text-red-200 text-sm text-center">{message}</p>
         </div>
       )}
@@ -119,7 +125,8 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           <button
             type="button"
             onClick={onSwitchToRegister}
-            className="text-blue-400 hover:text-blue-300 font-medium transition-colors duration-200 underline-offset-4 hover:underline"
+            disabled={isLoading}
+            className="text-blue-400 hover:text-blue-300 font-medium transition-colors duration-200 underline-offset-4 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Register here
           </button>
