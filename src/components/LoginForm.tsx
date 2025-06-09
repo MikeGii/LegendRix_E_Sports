@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from './AuthProvider'
-import { useRouter } from 'next/navigation'
 
 interface LoginFormData {
   email: string
@@ -18,7 +17,6 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const router = useRouter()
   
   const {
     register,
@@ -37,22 +35,21 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
     console.log('🔐 LoginForm - Login result:', result)
     
     if (result.success && result.user) {
-      console.log('✅ LoginForm - Login successful, redirecting user:', result.user.role)
+      console.log('✅ LoginForm - Login successful, redirecting...')
       
-      // Use replace instead of push to prevent back button issues
-      if (result.user.role === 'admin') {
-        router.replace('/admin-dashboard')
-      } else {
-        router.replace('/user-dashboard')
-      }
+      // Simple redirect after successful login
+      const targetUrl = result.user.role === 'admin' ? '/admin-dashboard' : '/user-dashboard'
+      
+      // Small delay to ensure state is updated, then redirect
+      setTimeout(() => {
+        window.location.href = targetUrl
+      }, 300)
+      
     } else {
       console.log('❌ LoginForm - Login failed:', result.message)
       setMessage(result.message)
       setIsLoading(false)
     }
-    
-    // Don't set loading to false here if login was successful
-    // Let the redirect handle the state change
   }
 
   return (

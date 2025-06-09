@@ -12,10 +12,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth()
   const router = useRouter()
 
-  const handleLogout = () => {
+    const handleLogout = () => {
     logout()
-    router.push('/')
-  }
+    router.push('/') // Go to login page instead of reload
+    }
 
   if (!user) return null
 

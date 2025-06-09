@@ -1,37 +1,17 @@
-// Fix 1: Update src/app/page.tsx to prevent redirect loops
-// src/app/page.tsx
 'use client'
 
 import { useAuth } from '@/components/AuthProvider'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { LoginForm } from '@/components/LoginForm'
 import { RegisterForm } from '@/components/RegisterForm'
 
 type AuthView = 'login' | 'register'
 
 export default function HomePage() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, logout } = useAuth()
   const [authView, setAuthView] = useState<AuthView>('login')
-  const [hasRedirected, setHasRedirected] = useState(false)
-  const router = useRouter()
 
-  // Debug logging
-  console.log('🏠 HomePage - user:', user, 'isLoading:', isLoading, 'hasRedirected:', hasRedirected)
-
-  // Redirect authenticated users to their appropriate dashboard
-  useEffect(() => {
-    if (!isLoading && user && !hasRedirected) {
-      console.log('🔄 HomePage - Redirecting user:', user.email, 'role:', user.role)
-      setHasRedirected(true)
-      
-      if (user.role === 'admin') {
-        router.replace('/admin-dashboard')
-      } else {
-        router.replace('/user-dashboard')
-      }
-    }
-  }, [user, isLoading, hasRedirected, router])
+  console.log('🏠 HomePage - user:', user?.email, 'role:', user?.role, 'isLoading:', isLoading)
 
   // Loading state
   if (isLoading) {
@@ -46,14 +26,55 @@ export default function HomePage() {
     )
   }
 
-  // Show redirecting message for authenticated users
+  // If user is authenticated, show navigation options
   if (user) {
-    console.log('👤 HomePage - User authenticated, showing redirect message')
+    console.log('👤 HomePage - User authenticated:', user.role)
+    
+    const handleDashboardClick = (dashboardType: 'admin' | 'user') => {
+      const url = dashboardType === 'admin' ? '/admin-dashboard' : '/user-dashboard'
+      console.log('🔄 HomePage - Navigating to:', url)
+      
+      // Simple navigation - let ProtectedRoute handle the protection
+      window.location.href = url
+    }
+
+    const handleLogout = () => {
+      console.log('🚪 HomePage - Logging out')
+      logout()
+      window.location.reload()
+    }
+
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Redirecting to dashboard...</p>
+        <div className="text-center text-white max-w-md">
+          <h1 className="text-2xl font-bold mb-4">Welcome, {user.name}!</h1>
+          <p className="text-gray-400 mb-2">You are logged in as: <span className="text-green-400 font-semibold">{user.role}</span></p>
+          <p className="text-gray-400 mb-6">Email: {user.email}</p>
+          
+          <div className="space-y-4">
+            {user.role === 'admin' ? (
+              <button 
+                onClick={() => handleDashboardClick('admin')}
+                className="block w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                Go to Admin Dashboard
+              </button>
+            ) : (
+              <button 
+                onClick={() => handleDashboardClick('user')}
+                className="block w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+              >
+                Go to User Dashboard
+              </button>
+            )}
+            
+            <button
+              onClick={handleLogout}
+              className="block w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     )

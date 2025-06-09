@@ -46,6 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('🔐 AuthProvider - attempting login for:', email)
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -55,22 +57,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       const data = await response.json()
+      console.log('🔐 AuthProvider - login response:', data)
 
       if (response.ok && data.success) {
+        console.log('🔐 AuthProvider - login successful, setting tokens')
+        
+        // Store token in localStorage
         localStorage.setItem('auth_token', data.token)
         
-        // Also set as cookie for middleware
-        document.cookie = `auth_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}` // 7 days
+        // FIXED: Set cookie properly for middleware
+        // Remove any existing auth_token cookie first
+        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+        
+        // Set new cookie with proper format
+        const cookieValue = `auth_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`
+        document.cookie = cookieValue
+        
+        console.log('🔐 AuthProvider - setting cookie:', cookieValue)
+        
+        // Wait a moment for cookie to be set
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Verify cookie was set
+        const cookieCheck = document.cookie.includes('auth_token')
+        console.log('🔐 AuthProvider - cookie verification:', cookieCheck)
+        console.log('🔐 AuthProvider - all cookies:', document.cookie)
         
         setUser(data.user)
         
         // Return user data for navigation
         return { success: true, message: data.message, user: data.user }
       } else {
+        console.log('🔐 AuthProvider - login failed:', data.error)
         return { success: false, message: data.error || 'Login failed' }
       }
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('🔐 AuthProvider - login error:', error)
       return { success: false, message: 'Network error. Please try again.' }
     }
   }
