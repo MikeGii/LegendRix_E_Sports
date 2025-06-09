@@ -1,14 +1,63 @@
-// Clean and Minimal User Dashboard
 // src/components/UserDashboard.tsx
 
 'use client'
 
 import { useAuth } from './AuthProvider'
 import { useView } from './ViewProvider'
+import { RallyDisplay } from './rally/RallyDisplay'
+import { useRallyApi } from '@/hooks/useRallyApi'
+import { useState, useEffect } from 'react'
+
+interface Rally {
+  rally_id: string
+  rally_game_id: string
+  rally_type_id: string
+  rally_event_id: string
+  rally_date: string
+  registration_ending_date: string
+  optional_notes?: string
+  created_by: string
+  created_at: string
+  updated_at: string
+  game_name: string
+  type_name: string
+  event_name: string
+  creator_name?: string
+}
 
 export function UserDashboard() {
   const { user } = useAuth()
   const { currentView, canSwitchView } = useView()
+  const [upcomingRallies, setUpcomingRallies] = useState<Rally[]>([])
+  const [isLoadingRallies, setIsLoadingRallies] = useState(true)
+
+  // Use the rally API hook
+  const { fetchUpcomingRallies } = useRallyApi()
+
+  // Load upcoming rallies on component mount
+  useEffect(() => {
+    loadUpcomingRallies()
+  }, [])
+
+  const loadUpcomingRallies = async () => {
+    try {
+      setIsLoadingRallies(true)
+      console.log('Loading upcoming rallies...')
+      const rallies = await fetchUpcomingRallies(3)
+      setUpcomingRallies(rallies)
+      console.log('Upcoming rallies loaded:', rallies.length)
+    } catch (error) {
+      console.error('Failed to load upcoming rallies:', error)
+    } finally {
+      setIsLoadingRallies(false)
+    }
+  }
+
+  const handleRegister = (rallyId: string) => {
+    // TODO: Implement rally registration
+    console.log('Register for rally:', rallyId)
+    // This will be implemented later
+  }
 
   if (!user) return null
 
@@ -57,7 +106,7 @@ export function UserDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div className="max-w-6xl mx-auto p-6 space-y-8">
         
         {/* Welcome Header */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8">
@@ -92,6 +141,39 @@ export function UserDashboard() {
             )}
           </div>
         </div>
+
+        {/* Upcoming Rallies Section */}
+        {canAccessRallies && (
+          <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
+                <span>🏁</span>
+                <span>Upcoming Rallies</span>
+              </h2>
+              
+              {upcomingRallies.length > 0 && (
+                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200">
+                  View All Rallies
+                </button>
+              )}
+            </div>
+            
+            {isLoadingRallies ? (
+              <div className="flex justify-center py-12">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-slate-600 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-slate-400">Loading upcoming rallies...</p>
+                </div>
+              </div>
+            ) : (
+              <RallyDisplay 
+                rallies={upcomingRallies}
+                showLimit={3}
+                onRegister={handleRegister}
+              />
+            )}
+          </div>
+        )}
 
         {/* Main Action Buttons */}
         <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8">

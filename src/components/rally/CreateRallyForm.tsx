@@ -38,7 +38,7 @@ export function CreateRallyForm({
   const [rallyForm, setRallyForm] = useState({
     gameId: '',
     typeId: '',
-    eventId: '',
+    eventIds: [''], // Changed to array for multiple events
     rallyDate: '',
     registrationEndDate: '',
     notes: ''
@@ -46,12 +46,50 @@ export function CreateRallyForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(rallyForm)
+    
+    // Filter out empty event IDs
+    const selectedEventIds = rallyForm.eventIds.filter(id => id.trim() !== '')
+    
+    onSubmit({
+      ...rallyForm,
+      eventIds: selectedEventIds
+    })
   }
 
   const handleGameChange = (gameId: string) => {
-    setRallyForm({ ...rallyForm, gameId, typeId: '', eventId: '' })
+    setRallyForm({ ...rallyForm, gameId, typeId: '', eventIds: [''] })
     onGameChange(gameId)
+  }
+
+  // Add new event selection
+  const addEventSelection = () => {
+    setRallyForm({
+      ...rallyForm,
+      eventIds: [...rallyForm.eventIds, '']
+    })
+  }
+
+  // Remove event selection
+  const removeEventSelection = (index: number) => {
+    if (rallyForm.eventIds.length > 1) {
+      const newEventIds = rallyForm.eventIds.filter((_, i) => i !== index)
+      setRallyForm({...rallyForm, eventIds: newEventIds})
+    }
+  }
+
+  // Update specific event selection
+  const updateEventSelection = (index: number, eventId: string) => {
+    const newEventIds = [...rallyForm.eventIds]
+    newEventIds[index] = eventId
+    setRallyForm({...rallyForm, eventIds: newEventIds})
+  }
+
+  // Get available events (exclude already selected ones)
+  const getAvailableEventsForIndex = (currentIndex: number) => {
+    const selectedEventIds = rallyForm.eventIds
+      .filter((id, index) => index !== currentIndex && id.trim() !== '')
+    
+    return filteredEvents.filter(event => !selectedEventIds.includes(event.id))
   }
 
   return (
@@ -92,20 +130,78 @@ export function CreateRallyForm({
           </div>
         </div>
 
+        {/* Rally Events Section */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Rally Event *</label>
-          <select
-            value={rallyForm.eventId}
-            onChange={(e) => setRallyForm({...rallyForm, eventId: e.target.value})}
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-            disabled={!rallyForm.gameId}
-          >
-            <option value="">Select an event...</option>
-            {filteredEvents.map((event) => (
-              <option key={event.id} value={event.id}>{event.event_name}</option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium text-slate-300 mb-4">
+            Rally Events * (at least one required)
+          </label>
+          <div className="space-y-3">
+            {rallyForm.eventIds.map((eventId, index) => {
+              const availableEvents = getAvailableEventsForIndex(index)
+              
+              return (
+                <div key={index} className="flex items-center space-x-3">
+                  <div className="flex-1">
+                    <select
+                      value={eventId}
+                      onChange={(e) => updateEventSelection(index, e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={!rallyForm.gameId}
+                      required={index === 0} // Only first event is required
+                    >
+                      <option value="">Select event {index + 1}...</option>
+                      {availableEvents.map((event) => (
+                        <option key={event.id} value={event.id}>{event.event_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Add button - show on last non-empty field */}
+                  {index === rallyForm.eventIds.length - 1 && eventId.trim() && availableEvents.length > rallyForm.eventIds.filter(id => id.trim()).length && (
+                    <button
+                      type="button"
+                      onClick={addEventSelection}
+                      className="w-12 h-12 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center font-bold text-xl transition-all duration-200"
+                      title="Add another event"
+                    >
+                      +
+                    </button>
+                  )}
+                  
+                  {/* Remove button - show if more than 1 field */}
+                  {rallyForm.eventIds.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeEventSelection(index)}
+                      className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center font-bold text-xl transition-all duration-200"
+                      title="Remove this event"
+                    >
+                      −
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          
+          {/* Selected Events Preview */}
+          {rallyForm.eventIds.some(id => id.trim()) && (
+            <div className="mt-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <h4 className="text-sm font-medium text-slate-300 mb-2">Selected Events:</h4>
+              <div className="flex flex-wrap gap-2">
+                {rallyForm.eventIds
+                  .filter(id => id.trim())
+                  .map((eventId, index) => {
+                    const event = filteredEvents.find(e => e.id === eventId)
+                    return event ? (
+                      <span key={eventId} className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm rounded-full border border-blue-500/30">
+                        {index + 1}. {event.event_name}
+                      </span>
+                    ) : null
+                  })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">

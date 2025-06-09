@@ -44,8 +44,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const upcomingOnly = searchParams.get('upcoming') === 'true'
     
-    const rallies = await rallyDb.getRalliesWithDetails(limit, offset)
+    const rallies = await rallyDb.getRalliesWithDetails(limit, offset, upcomingOnly)
     
     requestLogger.info('Rallies fetched successfully', { count: rallies.length })
     
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     
     // Parse and validate request body
     const body = await request.json()
-    const { gameId, typeId, eventId, rallyDate, registrationEndDate, notes } = body
+    const { gameId, typeId, eventIds, rallyDate, registrationEndDate, notes } = body
     
     // Validation
     if (!gameId || typeof gameId !== 'string') {
@@ -82,8 +83,13 @@ export async function POST(request: NextRequest) {
       throw new ValidationError('Rally type ID is required')
     }
     
-    if (!eventId || typeof eventId !== 'string') {
-      throw new ValidationError('Rally event ID is required')
+    if (!Array.isArray(eventIds) || eventIds.length === 0) {
+      throw new ValidationError('At least one rally event is required')
+    }
+    
+    // Validate all event IDs are strings
+    if (!eventIds.every(id => typeof id === 'string' && id.trim())) {
+      throw new ValidationError('All event IDs must be valid')
     }
     
     if (!rallyDate || typeof rallyDate !== 'string') {
@@ -118,16 +124,17 @@ export async function POST(request: NextRequest) {
     requestLogger.info('Creating rally', {
       gameId,
       typeId,
-      eventId,
+      eventIds,
+      eventCount: eventIds.length,
       rallyDate: rallyDateTime.toISOString(),
       registrationEndDate: registrationEndDateTime.toISOString()
     })
     
-    // Create the rally
+    // Create the rally with multiple events
     const rally = await rallyDb.createRally(
       gameId,
       typeId,
-      eventId,
+      eventIds, // Now an array
       rallyDateTime,
       registrationEndDateTime,
       adminId,

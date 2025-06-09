@@ -49,6 +49,7 @@ export interface RallyWithDetails extends Rally {
   game_name: string
   type_name: string
   event_name: string
+  creator_name?: string
 }
 
 // Rally Database Operations Class
@@ -245,23 +246,27 @@ class RallyDatabaseService {
   // ==================
   
   /**
-   * Create a new rally
+   * Create a new rally with multiple events
    */
   async createRally(
     gameId: string,
     typeId: string,
-    eventId: string,
+    eventIds: string[], // Changed to array
     rallyDate: Date,
     registrationEndingDate: Date,
     createdBy: string,
     optionalNotes?: string
   ): Promise<Rally> {
     try {
+      // Validate that we have at least one event
+      if (!eventIds || eventIds.length === 0) {
+        throw new AppError('At least one rally event is required', 400, 'NO_EVENTS')
+      }
+
       // Validate that the IDs exist and belong to the same game
-      const [gameCheck, typeCheck, eventCheck] = await Promise.all([
+      const [gameCheck, typeCheck] = await Promise.all([
         sql`SELECT id FROM rally_games WHERE id = ${gameId} AND is_active = true`,
-        sql`SELECT id FROM rally_types WHERE id = ${typeId} AND game_id = ${gameId} AND is_active = true`,
-        sql`SELECT id FROM rally_events WHERE id = ${eventId} AND game_id = ${gameId} AND is_active = true`
+        sql`SELECT id FROM rally_types WHERE id = ${typeId} AND game_id = ${gameId} AND is_active = true`
       ])
       
       if (gameCheck.rows.length === 0) {
@@ -270,38 +275,52 @@ class RallyDatabaseService {
       if (typeCheck.rows.length === 0) {
         throw new AppError('Selected rally type not found or not associated with this game', 404, 'TYPE_NOT_FOUND')
       }
-      if (eventCheck.rows.length === 0) {
-        throw new AppError('Selected rally event not found or not associated with this game', 404, 'EVENT_NOT_FOUND')
+
+      // Validate all events exist and belong to the same game
+      for (const eventId of eventIds) {
+        const eventCheck = await sql`SELECT id FROM rally_events WHERE id = ${eventId} AND game_id = ${gameId} AND is_active = true`
+        if (eventCheck.rows.length === 0) {
+          throw new AppError(`Rally event ${eventId} not found or not associated with this game`, 404, 'EVENT_NOT_FOUND')
+        }
       }
       
-      // Create the rally
-      const result = await sql`
+      // Create the rally (without direct event reference)
+      const rallyResult = await sql`
         INSERT INTO rallies (
           rally_game_id, 
           rally_type_id, 
-          rally_event_id, 
           rally_date, 
           registration_ending_date, 
           optional_notes, 
           created_by
         )
-        VALUES (${gameId}, ${typeId}, ${eventId}, ${rallyDate.toISOString()}, ${registrationEndingDate.toISOString()}, ${optionalNotes || null}, ${createdBy})
+        VALUES (${gameId}, ${typeId}, ${rallyDate.toISOString()}, ${registrationEndingDate.toISOString()}, ${optionalNotes || null}, ${createdBy})
         RETURNING *
       `
       
-      if (result.rows.length === 0) {
+      if (rallyResult.rows.length === 0) {
         throw new AppError('Failed to create rally', 500, 'CREATION_FAILED')
       }
+
+      const rally = rallyResult.rows[0] as Rally
       
-      logger.info('Rally created successfully', { 
-        rallyId: result.rows[0].rally_id, 
+      // Create event assignments
+      for (let i = 0; i < eventIds.length; i++) {
+        await sql`
+          INSERT INTO rally_event_assignments (rally_id, rally_event_id, event_order)
+          VALUES (${rally.rally_id}, ${eventIds[i]}, ${i + 1})
+        `
+      }
+      
+      logger.info('Rally created successfully with multiple events', { 
+        rallyId: rally.rally_id, 
         gameId, 
         typeId, 
-        eventId, 
+        eventCount: eventIds.length,
         createdBy 
       })
       
-      return result.rows[0] as Rally
+      return rally
     } catch (error) {
       logger.error('Failed to create rally:', error)
       if (error instanceof AppError) {
@@ -314,21 +333,29 @@ class RallyDatabaseService {
   /**
    * Get rallies with full details (joined with game, type, event names)
    */
-  async getRalliesWithDetails(limit: number = 50, offset: number = 0): Promise<RallyWithDetails[]> {
+  async getRalliesWithDetails(limit: number = 50, offset: number = 0, upcomingOnly: boolean = false): Promise<RallyWithDetails[]> {
     try {
-      const result = await sql`
+      let query = `
         SELECT 
           r.*,
           g.game_name,
           t.type_name,
-          e.event_name
+          e.event_name,
+          u.name as creator_name
         FROM rallies r
         JOIN rally_games g ON r.rally_game_id = g.id
         JOIN rally_types t ON r.rally_type_id = t.id
         JOIN rally_events e ON r.rally_event_id = e.id
-        ORDER BY r.rally_date DESC
-        LIMIT ${limit} OFFSET ${offset}
+        LEFT JOIN users u ON r.created_by = u.id
       `
+      
+      if (upcomingOnly) {
+        query += ` WHERE r.rally_date > NOW()`
+      }
+      
+      query += ` ORDER BY r.rally_date ${upcomingOnly ? 'ASC' : 'DESC'} LIMIT ${limit} OFFSET ${offset}`
+      
+      const result = await sql.query(query)
       
       return result.rows as RallyWithDetails[]
     } catch (error) {

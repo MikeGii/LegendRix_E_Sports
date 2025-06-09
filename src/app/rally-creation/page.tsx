@@ -121,8 +121,8 @@ export default function RallyCreationPage() {
   }
 
   const handleCreateRally = async (rallyData: any) => {
-    if (!rallyData.gameId || !rallyData.typeId || !rallyData.eventId || !rallyData.rallyDate || !rallyData.registrationEndDate) {
-      showMessage('error', 'Please fill in all required fields')
+    if (!rallyData.gameId || !rallyData.typeId || !rallyData.eventIds || rallyData.eventIds.length === 0 || !rallyData.rallyDate || !rallyData.registrationEndDate) {
+      showMessage('error', 'Please fill in all required fields and select at least one event')
       return
     }
     
@@ -131,14 +131,14 @@ export default function RallyCreationPage() {
       const newRally = await createRally({
         gameId: rallyData.gameId,
         typeId: rallyData.typeId,
-        eventId: rallyData.eventId,
+        eventIds: rallyData.eventIds, // Now sending array of event IDs
         rallyDate: rallyData.rallyDate,
         registrationEndDate: rallyData.registrationEndDate,
         notes: rallyData.notes
       })
       
       console.log('Rally created successfully:', newRally)
-      showMessage('success', 'Rally created successfully!')
+      showMessage('success', `Rally created successfully with ${rallyData.eventIds.length} event(s)!`)
     } catch (err) {
       console.error('Failed to create rally:', err)
       // Error is already handled by the hook and will show via useEffect

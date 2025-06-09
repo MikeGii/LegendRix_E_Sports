@@ -44,6 +44,7 @@ interface Rally {
   game_name: string
   type_name: string
   event_name: string
+  creator_name?: string
 }
 
 interface ApiResponse<T> {
@@ -158,6 +159,54 @@ export function useRallyApi() {
     }
   }, [])
 
+  // Utility function to fetch game data (types + events) for a specific game
+  const fetchGameData = useCallback(async (gameId: string): Promise<{
+    types: RallyType[]
+    events: RallyEvent[]
+  }> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const [types, events] = await Promise.all([
+        fetchRallyTypes(gameId),
+        fetchRallyEvents(gameId)
+      ])
+      
+      return { types, events }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [fetchRallyTypes, fetchRallyEvents])
+
+  // Fetch upcoming rallies for user dashboard
+  const fetchUpcomingRallies = useCallback(async (limit: number = 3): Promise<Rally[]> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response: ApiResponse<Rally[]> = await apiCall(
+        `/api/rally/rallies?limit=${limit}&upcoming=true`
+      )
+      
+      if (response.success && response.data) {
+        return response.data
+      } else {
+        throw new Error(response.error || 'Failed to fetch upcoming rallies')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   // Create a complete game setup (game + types + events)
   const createGameSetup = useCallback(async (gameData: {
     gameName: string
@@ -200,7 +249,7 @@ export function useRallyApi() {
   const createRally = useCallback(async (rallyData: {
     gameId: string
     typeId: string
-    eventId: string
+    eventIds: string[] // Changed from eventId to eventIds array
     rallyDate: string
     registrationEndDate: string
     notes?: string
@@ -302,30 +351,6 @@ export function useRallyApi() {
     }
   }, [])
 
-  // Utility function to fetch game data (types + events) for a specific game
-  const fetchGameData = useCallback(async (gameId: string): Promise<{
-    types: RallyType[]
-    events: RallyEvent[]
-  }> => {
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const [types, events] = await Promise.all([
-        fetchRallyTypes(gameId),
-        fetchRallyEvents(gameId)
-      ])
-      
-      return { types, events }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
-      setError(errorMessage)
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
-  }, [fetchRallyTypes, fetchRallyEvents])
-
   return {
     // State
     isLoading,
@@ -336,6 +361,7 @@ export function useRallyApi() {
     fetchRallyTypes,
     fetchRallyEvents,
     fetchGameData,
+    fetchUpcomingRallies,
     createGameSetup,
     createRally,
     fetchRallies,
