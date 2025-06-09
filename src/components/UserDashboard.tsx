@@ -1,15 +1,28 @@
-// src/components/UserDashboard.tsx
-
 'use client'
 
 import { useAuth } from './AuthProvider'
+import { useView } from './ViewProvider'
 
 export function UserDashboard() {
   const { user } = useAuth()
+  const { currentView, canSwitchView } = useView()
 
   if (!user) return null
 
+  // Check if this is an admin viewing as user
+  const isAdminAsUser = user.role === 'admin' && currentView === 'user'
+
   const getStatusMessage = () => {
+    // Admins viewing as users are always "approved"
+    if (isAdminAsUser) {
+      return {
+        type: 'success',
+        message: 'You have full access as an administrator competing as a driver!',
+        icon: '👑',
+        color: 'green'
+      }
+    }
+
     if (!user.emailVerified) {
       return {
         type: 'warning',
@@ -44,16 +57,35 @@ export function UserDashboard() {
         
         {/* Welcome Header */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center">
-              <span className="text-blue-400 text-2xl font-bold">
-                {user.name.charAt(0).toUpperCase()}
-              </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                isAdminAsUser ? 'bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-blue-500/30' : 'bg-blue-500/20'
+              }`}>
+                <span className="text-blue-400 text-2xl font-bold">
+                  {isAdminAsUser ? '👑' : user.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">
+                  Welcome back, {user.name}!
+                  {isAdminAsUser && <span className="text-purple-400 ml-2">(Admin)</span>}
+                </h1>
+                <p className="text-slate-400 mt-1">
+                  {isAdminAsUser ? 'Administrator competing as driver' : 'E-WRC Rally Championship Dashboard'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white">Welcome back, {user.name}!</h1>
-              <p className="text-slate-400 mt-1">E-WRC Rally Championship Dashboard</p>
-            </div>
+            
+            {/* Admin Badge */}
+            {isAdminAsUser && (
+              <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-xl px-4 py-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-purple-400">👑</span>
+                  <span className="text-purple-300 font-medium">Admin Driver</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -77,7 +109,8 @@ export function UserDashboard() {
                 status.color === 'yellow' ? 'text-yellow-400' :
                 'text-blue-400'
               }`}>
-                {status.type === 'success' ? 'Account Active' :
+                {isAdminAsUser ? 'Admin Access' :
+                 status.type === 'success' ? 'Account Active' :
                  status.type === 'warning' ? 'Email Verification Required' :
                  'Pending Approval'}
               </h3>
@@ -91,61 +124,75 @@ export function UserDashboard() {
           {/* Account Information */}
           <div className="lg:col-span-2">
             <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8">
-              <h2 className="text-xl font-semibold text-white mb-6">Account Information</h2>
+              <h2 className="text-xl font-semibold text-white mb-6">
+                {isAdminAsUser ? 'Driver Profile' : 'Account Information'}
+              </h2>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
-                    <label className="text-slate-400 text-sm">Full Name</label>
+                    <label className="text-slate-400 text-sm">Driver Name</label>
                     <p className="text-white font-medium">{user.name}</p>
                   </div>
                   
                   <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
-                    <label className="text-slate-400 text-sm">Email Address</label>
+                    <label className="text-slate-400 text-sm">Contact Email</label>
                     <p className="text-white font-medium">{user.email}</p>
                   </div>
                   
                   <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
-                    <label className="text-slate-400 text-sm">Account Role</label>
-                    <p className="text-white font-medium capitalize">{user.role}</p>
+                    <label className="text-slate-400 text-sm">Driver Type</label>
+                    <p className="text-white font-medium">
+                      {isAdminAsUser ? 'Admin Driver' : 'Regular Driver'}
+                    </p>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
-                    <label className="text-slate-400 text-sm">Email Verification</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className={`w-2 h-2 rounded-full ${user.emailVerified ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                      <p className={`font-medium ${user.emailVerified ? 'text-green-400' : 'text-red-400'}`}>
-                        {user.emailVerified ? 'Verified' : 'Not Verified'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
-                    <label className="text-slate-400 text-sm">Admin Approval</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className={`w-2 h-2 rounded-full ${user.adminApproved ? 'bg-green-400' : 'bg-yellow-400'}`}></span>
-                      <p className={`font-medium ${user.adminApproved ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {user.adminApproved ? 'Approved' : 'Pending'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
-                    <label className="text-slate-400 text-sm">Account Status</label>
+                    <label className="text-slate-400 text-sm">Verification Status</label>
                     <div className="flex items-center space-x-2 mt-1">
                       <span className={`w-2 h-2 rounded-full ${
+                        isAdminAsUser || user.emailVerified ? 'bg-green-400' : 'bg-red-400'
+                      }`}></span>
+                      <p className={`font-medium ${
+                        isAdminAsUser || user.emailVerified ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {isAdminAsUser || user.emailVerified ? 'Verified' : 'Not Verified'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
+                    <label className="text-slate-400 text-sm">Competition Status</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${
+                        isAdminAsUser || user.adminApproved ? 'bg-green-400' : 'bg-yellow-400'
+                      }`}></span>
+                      <p className={`font-medium ${
+                        isAdminAsUser || user.adminApproved ? 'text-green-400' : 'text-yellow-400'
+                      }`}>
+                        {isAdminAsUser || user.adminApproved ? 'Approved' : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
+                    <label className="text-slate-400 text-sm">License Status</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${
+                        isAdminAsUser ? 'bg-purple-400' :
                         user.status === 'approved' ? 'bg-green-400' :
                         user.status === 'rejected' ? 'bg-red-400' :
                         'bg-yellow-400'
                       }`}></span>
                       <p className={`font-medium capitalize ${
+                        isAdminAsUser ? 'text-purple-400' :
                         user.status === 'approved' ? 'text-green-400' :
                         user.status === 'rejected' ? 'text-red-400' :
                         'text-yellow-400'
                       }`}>
-                        {user.status.replace('_', ' ')}
+                        {isAdminAsUser ? 'Admin License' : user.status.replace('_', ' ')}
                       </p>
                     </div>
                   </div>
@@ -159,16 +206,9 @@ export function UserDashboard() {
             <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                {!user.emailVerified && (
-                  <button className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25">
-                    <div className="flex items-center justify-center space-x-2">
-                      <span>📧</span>
-                      <span>Resend Verification</span>
-                    </div>
-                  </button>
-                )}
                 
-                {user.emailVerified && user.adminApproved && (
+                {/* Admin drivers or approved users can register */}
+                {(isAdminAsUser || (user.emailVerified && user.adminApproved)) && (
                   <>
                     <button className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25">
                       <div className="flex items-center justify-center space-x-2">
@@ -184,6 +224,16 @@ export function UserDashboard() {
                     </button>
                   </>
                 )}
+
+                {/* Email verification for non-admin users */}
+                {!isAdminAsUser && !user.emailVerified && (
+                  <button className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25">
+                    <div className="flex items-center justify-center space-x-2">
+                      <span>📧</span>
+                      <span>Resend Verification</span>
+                    </div>
+                  </button>
+                )}
                 
                 <button className="w-full px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all duration-200">
                   <div className="flex items-center justify-center space-x-2">
@@ -191,6 +241,19 @@ export function UserDashboard() {
                     <span>Edit Profile</span>
                   </div>
                 </button>
+
+                {/* Admin quick switch */}
+                {canSwitchView && currentView === 'user' && (
+                  <button 
+                    onClick={() => window.location.href = '/admin-dashboard'}
+                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25 border border-blue-500/30"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <span>👑</span>
+                      <span>Switch to Admin</span>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 

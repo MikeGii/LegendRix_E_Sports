@@ -1,7 +1,7 @@
 'use client'
 
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { AdminDashboard } from '@/components/AdminDashboard'
+import { SmartDashboard } from '@/components/SmartDashboard'
 import { DashboardLayout } from '@/components/DashboardLayout'
 
 export default function AdminDashboardPage() {
@@ -10,7 +10,7 @@ export default function AdminDashboardPage() {
   return (
     <ProtectedRoute requiredRole="admin">
       <DashboardLayout>
-        <AdminDashboard />
+        <SmartDashboard />
       </DashboardLayout>
     </ProtectedRoute>
   )

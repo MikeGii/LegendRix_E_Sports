@@ -1,7 +1,7 @@
 'use client'
 
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { UserDashboard } from '@/components/UserDashboard'
+import { SmartDashboard } from '@/components/SmartDashboard'
 import { DashboardLayout } from '@/components/DashboardLayout'
 
 export default function UserDashboardPage() {
@@ -10,11 +10,11 @@ export default function UserDashboardPage() {
   return (
     <ProtectedRoute 
       requiredRole="user"
-      requireEmailVerified={false} // Allow users to see their status
-      requireAdminApproved={false}  // Allow users to see pending approval status
+      requireEmailVerified={false}
+      requireAdminApproved={false}
     >
       <DashboardLayout>
-        <UserDashboard />
+        <SmartDashboard />
       </DashboardLayout>
     </ProtectedRoute>
   )

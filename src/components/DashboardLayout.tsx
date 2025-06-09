@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from './AuthProvider'
+import { useView } from './ViewProvider'
 import { useRouter } from 'next/navigation'
 
 interface DashboardLayoutProps {
@@ -9,6 +10,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth()
+  const { currentView, setCurrentView, canSwitchView } = useView()
   const router = useRouter()
 
   const handleLogout = () => {
@@ -32,13 +34,57 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div>
                   <h1 className="text-lg font-bold text-white">E-WRC Rally</h1>
                   <p className="text-xs text-slate-400 -mt-1">
-                    {user.role === 'admin' ? 'Admin Panel' : 'Driver Portal'}
+                    {currentView === 'admin' ? 'Admin Panel' : 'Driver Portal'}
                   </p>
                 </div>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* View Switcher for Admins */}
+              {canSwitchView && (
+                <div className="hidden md:flex bg-slate-700/50 rounded-xl p-1">
+                  <button
+                    onClick={() => setCurrentView('admin')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentView === 'admin'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span>👑</span>
+                      <span>Admin</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('user')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentView === 'user'
+                        ? 'bg-green-600 text-white shadow-lg shadow-green-500/25'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span>🏁</span>
+                      <span>Driver</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* Mobile View Switcher */}
+              {canSwitchView && (
+                <div className="md:hidden">
+                  <button
+                    onClick={() => setCurrentView(currentView === 'admin' ? 'user' : 'admin')}
+                    className="p-2 bg-slate-700/50 rounded-lg text-slate-300 hover:text-white hover:bg-slate-600/50 transition-all duration-200"
+                  >
+                    {currentView === 'admin' ? '🏁' : '👑'}
+                  </button>
+                </div>
+              )}
+              
               <div className="hidden md:flex items-center space-x-3">
                 <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
                   <span className="text-blue-400 font-medium text-sm">
@@ -47,7 +93,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-white">{user.name}</p>
-                  <p className="text-xs text-slate-400">{user.email}</p>
+                  <p className="text-xs text-slate-400">
+                    {user.role === 'admin' && currentView === 'admin' ? 'Administrator' : 
+                     user.role === 'admin' && currentView === 'user' ? 'Admin as Driver' : 
+                     'Driver'}
+                  </p>
                 </div>
               </div>
               
