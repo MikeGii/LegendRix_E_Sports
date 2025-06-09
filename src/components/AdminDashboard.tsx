@@ -168,6 +168,29 @@ export function AdminDashboard() {
           </div>
         </div>
 
+                {/* Quick Action Bar */}
+        <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+          <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+            <button className="flex items-center space-x-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25">
+              <span className="text-xl">👥</span>
+              <span>User Management</span>
+            </button>
+            
+            <button className="flex items-center space-x-3 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-purple-500/25">
+              <span className="text-xl">📋</span>
+              <span>User List</span>
+            </button>
+            
+            <button 
+              onClick={() => window.location.href = '/rally-creation'}
+              className="flex items-center space-x-3 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
+            >
+              <span className="text-xl">🏁</span>
+              <span>Create a Rally</span>
+            </button>
+          </div>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-slate-800/30 backdrop-blur-xl rounded-xl border border-slate-700/50 p-6 hover:bg-slate-800/40 transition-all duration-200">
