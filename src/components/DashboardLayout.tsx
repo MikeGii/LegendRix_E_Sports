@@ -32,9 +32,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <span className="text-white font-bold text-sm">🏁</span>
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white">E-WRC Rally</h1>
+                  <h1 className="text-lg font-bold text-white">LegendRix E-Sports</h1>
                   <p className="text-xs text-slate-400 -mt-1">
-                    {currentView === 'admin' ? 'Admin Panel' : 'Driver Portal'}
+                    {currentView === 'admin' ? 'Admin Panel' : 'Sõitja portaal'}
                   </p>
                 </div>
               </div>
