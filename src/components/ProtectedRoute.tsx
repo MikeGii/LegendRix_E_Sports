@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from './AuthProvider'
-import { useView } from './ViewProvider'  // Add this import
+import { useView } from './ViewProvider'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -19,49 +19,57 @@ export function ProtectedRoute({
   requireAdminApproved = true
 }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
-  const { currentView } = useView()  // Add this
+  const { currentView } = useView()
   const router = useRouter()
   const pathname = usePathname()
   const [hasChecked, setHasChecked] = useState(false)
+
+  // Calculate if admin is in driver mode
+  const isAdminAsDriver = user?.role === 'admin' && currentView === 'user'
 
   console.log('🛡️ ProtectedRoute -', {
     pathname,
     user: user?.email,
     role: user?.role,
-    currentView,  // Add this
+    currentView,
+    isAdminAsDriver,
     isLoading,
     hasChecked,
-    requiredRole
+    requiredRole,
+    emailVerified: user?.emailVerified,
+    adminApproved: user?.adminApproved
   })
 
-  useEffect(() => {
+    useEffect(() => {
     if (!isLoading && !hasChecked) {
-      setHasChecked(true)
-      
-      // No user logged in
-      if (!user) {
+        setHasChecked(true)
+        
+        // No user logged in
+        if (!user) {
         console.log('🛡️ ProtectedRoute - No user, redirecting to login')
         router.replace('/')
         return
-      }
+        }
 
-      // Special handling for admin in driver mode accessing user routes
-      const isAdminAsDriver = user.role === 'admin' && currentView === 'user'
-      
-      // Check role requirement with admin-as-driver logic
-      if (requiredRole) {
-        if (requiredRole === 'user' && !isAdminAsDriver && user.role !== 'user') {
-          console.log('🛡️ ProtectedRoute - User role required, redirecting admin to admin dashboard')
-          router.replace('/admin-dashboard')
-          return
+        // Check role requirement with admin-as-driver logic
+        if (requiredRole) {
+        // If requiring user role
+        if (requiredRole === 'user') {
+            // Allow if user is actually a user OR admin in driver mode
+            if (user.role !== 'user' && !isAdminAsDriver) {
+            console.log('🛡️ ProtectedRoute - User role required but user is admin not in driver mode, redirecting')
+            router.replace('/admin-dashboard')
+            return
+            }
         }
         
+        // If requiring admin role - always allow actual admins regardless of current view
         if (requiredRole === 'admin' && user.role !== 'admin') {
-          console.log('🛡️ ProtectedRoute - Admin role required, redirecting to user dashboard')
-          router.replace('/user-dashboard')
-          return
+            console.log('🛡️ ProtectedRoute - Admin role required, redirecting to user dashboard')
+            router.replace('/user-dashboard')
+            return
         }
-      }
+        }
 
       // For user dashboard, be more lenient with verification requirements
       if (pathname === '/user-dashboard') {
@@ -91,9 +99,9 @@ export function ProtectedRoute({
       
       console.log('🛡️ ProtectedRoute - All checks passed')
     }
-  }, [user, isLoading, router, requiredRole, requireEmailVerified, requireAdminApproved, pathname, hasChecked, currentView])
+  }, [user, isLoading, router, requiredRole, requireEmailVerified, requireAdminApproved, pathname, hasChecked, currentView, isAdminAsDriver])
 
-  // Show loading while checking authentication
+  // Show loading while checking authentication or view state
   if (isLoading || !hasChecked) {
     console.log('🛡️ ProtectedRoute - Showing loading state')
     return (
@@ -112,21 +120,26 @@ export function ProtectedRoute({
     return null
   }
 
-  // Special handling for admin in driver mode
-  const isAdminAsDriver = user.role === 'admin' && currentView === 'user'
-
   // Check role requirements with admin-as-driver logic
-  if (requiredRole) {
-    if (requiredRole === 'user' && !isAdminAsDriver && user.role !== 'user') {
-      console.log('🛡️ ProtectedRoute - Role mismatch (need user), not rendering content')
-      return null
+    if (requiredRole) {
+    if (requiredRole === 'user') {
+        // Allow if user is actually a user OR admin in driver mode
+        if (user.role !== 'user' && !isAdminAsDriver) {
+        console.log('🛡️ ProtectedRoute - Role mismatch (need user), not rendering content', {
+            userRole: user.role,
+            isAdminAsDriver,
+            currentView
+        })
+        return null
+        }
     }
     
+    // For admin role requirement - always allow actual admins regardless of current view
     if (requiredRole === 'admin' && user.role !== 'admin') {
-      console.log('🛡️ ProtectedRoute - Role mismatch (need admin), not rendering content')
-      return null
+        console.log('🛡️ ProtectedRoute - Role mismatch (need admin), not rendering content')
+        return null
     }
-  }
+    }
 
   // For non-user-dashboard routes, check verification requirements
   if (pathname !== '/user-dashboard' && !isAdminAsDriver) {
