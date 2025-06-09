@@ -36,7 +36,6 @@ export interface Rally {
   rally_id: string
   rally_game_id: string
   rally_type_id: string
-  rally_event_id: string
   rally_date: Date
   registration_ending_date: Date
   optional_notes?: string
@@ -48,8 +47,22 @@ export interface Rally {
 export interface RallyWithDetails extends Rally {
   game_name: string
   type_name: string
-  event_name: string
+  events: Array<{
+    event_id: string
+    event_name: string
+    event_order: number
+    country?: string
+    surface_type?: string
+  }>
   creator_name?: string
+}
+
+export interface RallyEventAssignment {
+  id: string
+  rally_id: string
+  rally_event_id: string
+  event_order: number
+  created_at: Date
 }
 
 // Rally Database Operations Class
@@ -242,7 +255,7 @@ class RallyDatabaseService {
   }
 
   // ==================
-  // RALLIES
+  // RALLIES WITH MULTIPLE EVENTS
   // ==================
   
   /**
@@ -251,7 +264,7 @@ class RallyDatabaseService {
   async createRally(
     gameId: string,
     typeId: string,
-    eventIds: string[], // Changed to array
+    eventIds: string[], // Array of event IDs
     rallyDate: Date,
     registrationEndingDate: Date,
     createdBy: string,
@@ -331,33 +344,65 @@ class RallyDatabaseService {
   }
 
   /**
-   * Get rallies with full details (joined with game, type, event names)
+   * Get rallies with full details including all events
    */
   async getRalliesWithDetails(limit: number = 50, offset: number = 0, upcomingOnly: boolean = false): Promise<RallyWithDetails[]> {
     try {
-      let query = `
+      let whereClause = ''
+      if (upcomingOnly) {
+        whereClause = 'WHERE r.rally_date > NOW()'
+      }
+      
+      // Get rallies with basic info
+      const ralliesResult = await sql.query(`
         SELECT 
           r.*,
           g.game_name,
           t.type_name,
-          e.event_name,
           u.name as creator_name
         FROM rallies r
         JOIN rally_games g ON r.rally_game_id = g.id
         JOIN rally_types t ON r.rally_type_id = t.id
-        JOIN rally_events e ON r.rally_event_id = e.id
         LEFT JOIN users u ON r.created_by = u.id
-      `
+        ${whereClause}
+        ORDER BY r.rally_date ${upcomingOnly ? 'ASC' : 'DESC'} 
+        LIMIT ${limit} OFFSET ${offset}
+      `)
       
-      if (upcomingOnly) {
-        query += ` WHERE r.rally_date > NOW()`
+      const rallies = ralliesResult.rows as (Rally & { game_name: string; type_name: string; creator_name?: string })[]
+      
+      // Get events for each rally
+      const ralliesWithDetails: RallyWithDetails[] = []
+      
+      for (const rally of rallies) {
+        const eventsResult = await sql`
+          SELECT 
+            rea.event_order,
+            re.id as event_id,
+            re.event_name,
+            re.country,
+            re.surface_type
+          FROM rally_event_assignments rea
+          JOIN rally_events re ON rea.rally_event_id = re.id
+          WHERE rea.rally_id = ${rally.rally_id}
+          ORDER BY rea.event_order ASC
+        `
+        
+        const events = eventsResult.rows.map(row => ({
+          event_id: row.event_id,
+          event_name: row.event_name,
+          event_order: row.event_order,
+          country: row.country,
+          surface_type: row.surface_type
+        }))
+        
+        ralliesWithDetails.push({
+          ...rally,
+          events
+        })
       }
       
-      query += ` ORDER BY r.rally_date ${upcomingOnly ? 'ASC' : 'DESC'} LIMIT ${limit} OFFSET ${offset}`
-      
-      const result = await sql.query(query)
-      
-      return result.rows as RallyWithDetails[]
+      return ralliesWithDetails
     } catch (error) {
       logger.error('Failed to get rallies with details:', error)
       throw new AppError('Failed to retrieve rallies', 500, 'DATABASE_ERROR')
@@ -365,25 +410,57 @@ class RallyDatabaseService {
   }
 
   /**
-   * Get a specific rally by ID with details
+   * Get a specific rally by ID with all events
    */
   async getRallyById(rallyId: string): Promise<RallyWithDetails | null> {
     try {
-      const result = await sql`
+      // Get rally basic info
+      const rallyResult = await sql`
         SELECT 
           r.*,
           g.game_name,
           t.type_name,
-          e.event_name
+          u.name as creator_name
         FROM rallies r
         JOIN rally_games g ON r.rally_game_id = g.id
         JOIN rally_types t ON r.rally_type_id = t.id
-        JOIN rally_events e ON r.rally_event_id = e.id
+        LEFT JOIN users u ON r.created_by = u.id
         WHERE r.rally_id = ${rallyId}
         LIMIT 1
       `
       
-      return result.rows.length > 0 ? result.rows[0] as RallyWithDetails : null
+      if (rallyResult.rows.length === 0) {
+        return null
+      }
+      
+      const rally = rallyResult.rows[0] as Rally & { game_name: string; type_name: string; creator_name?: string }
+      
+      // Get events for this rally
+      const eventsResult = await sql`
+        SELECT 
+          rea.event_order,
+          re.id as event_id,
+          re.event_name,
+          re.country,
+          re.surface_type
+        FROM rally_event_assignments rea
+        JOIN rally_events re ON rea.rally_event_id = re.id
+        WHERE rea.rally_id = ${rallyId}
+        ORDER BY rea.event_order ASC
+      `
+      
+      const events = eventsResult.rows.map(row => ({
+        event_id: row.event_id,
+        event_name: row.event_name,
+        event_order: row.event_order,
+        country: row.country,
+        surface_type: row.surface_type
+      }))
+      
+      return {
+        ...rally,
+        events
+      }
     } catch (error) {
       logger.error('Failed to get rally by ID:', error)
       throw new AppError('Failed to retrieve rally', 500, 'DATABASE_ERROR')

@@ -8,11 +8,11 @@ import { RallyDisplay } from './rally/RallyDisplay'
 import { useRallyApi } from '@/hooks/useRallyApi'
 import { useState, useEffect } from 'react'
 
+// Simple Rally interface that matches what the hook returns
 interface Rally {
   rally_id: string
   rally_game_id: string
   rally_type_id: string
-  rally_event_id: string
   rally_date: string
   registration_ending_date: string
   optional_notes?: string
@@ -21,7 +21,13 @@ interface Rally {
   updated_at: string
   game_name: string
   type_name: string
-  event_name: string
+  events: Array<{
+    event_id: string
+    event_name: string
+    event_order: number
+    country?: string
+    surface_type?: string
+  }>
   creator_name?: string
 }
 

@@ -1,7 +1,7 @@
 // src/hooks/useRallyApi.ts
 import { useState, useCallback } from 'react'
 
-// Types
+// Types - Updated Rally interface with events array
 interface RallyGame {
   id: string
   game_name: string
@@ -30,11 +30,11 @@ interface RallyEvent {
   created_at: string
 }
 
+// Updated Rally interface with events array instead of single event
 interface Rally {
   rally_id: string
   rally_game_id: string
   rally_type_id: string
-  rally_event_id: string
   rally_date: string
   registration_ending_date: string
   optional_notes?: string
@@ -43,7 +43,13 @@ interface Rally {
   updated_at: string
   game_name: string
   type_name: string
-  event_name: string
+  events: Array<{
+    event_id: string
+    event_name: string
+    event_order: number
+    country?: string
+    surface_type?: string
+  }>
   creator_name?: string
 }
 
@@ -183,7 +189,7 @@ export function useRallyApi() {
     }
   }, [fetchRallyTypes, fetchRallyEvents])
 
-  // Fetch upcoming rallies for user dashboard
+  // Fetch upcoming rallies for user dashboard - returns rallies with events array
   const fetchUpcomingRallies = useCallback(async (limit: number = 3): Promise<Rally[]> => {
     setIsLoading(true)
     setError(null)
@@ -245,7 +251,7 @@ export function useRallyApi() {
     }
   }, [])
 
-  // Create a new rally
+  // Create a new rally - accepts array of event IDs
   const createRally = useCallback(async (rallyData: {
     gameId: string
     typeId: string

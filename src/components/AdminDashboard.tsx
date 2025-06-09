@@ -186,7 +186,7 @@ export function AdminDashboard() {
               className="flex items-center space-x-3 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
             >
               <span className="text-xl">🏁</span>
-              <span>Create a Rally</span>
+              <span>Rally Management</span>
             </button>
           </div>
         </div>

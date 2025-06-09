@@ -2,23 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-
-interface Rally {
-  rally_id: string
-  rally_game_id: string
-  rally_type_id: string
-  rally_event_id: string
-  rally_date: string
-  registration_ending_date: string
-  optional_notes?: string
-  created_by: string
-  created_at: string
-  updated_at: string
-  game_name: string
-  type_name: string
-  event_name: string
-  creator_name?: string
-}
+import type { Rally } from '@/types/rally'
 
 interface RallyDisplayProps {
   rallies: Rally[]
@@ -73,6 +57,24 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
     }
   }
 
+  const getSurfaceTypeIcon = (surfaceType?: string) => {
+    switch (surfaceType?.toLowerCase()) {
+      case 'gravel':
+        return '🪨'
+      case 'tarmac':
+      case 'asphalt':
+        return '🛣️'
+      case 'snow':
+        return '❄️'
+      case 'ice':
+        return '🧊'
+      case 'dirt':
+        return '🌍'
+      default:
+        return '🏁'
+    }
+  }
+
   // Sort rallies by rally date (nearest first) and limit results
   const sortedRallies = rallies
     .filter(rally => new Date(rally.rally_date) > new Date()) // Only show upcoming rallies
@@ -99,6 +101,7 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
         const isExpanded = expandedRallies.has(rally.rally_id)
         const registrationOpen = isRegistrationOpen(rally.registration_ending_date)
         const timeLeft = getTimeUntilDeadline(rally.registration_ending_date)
+        const eventCount = rally.events?.length || 0
 
         return (
           <div 
@@ -114,6 +117,11 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
                     <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full border border-blue-500/30">
                       {rally.type_name}
                     </span>
+                    {eventCount > 1 && (
+                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs font-medium rounded-full border border-purple-500/30">
+                        {eventCount} Events
+                      </span>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
@@ -137,6 +145,32 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
                         {timeLeft}
                       </span>
                     </div>
+
+                    {/* Quick Events Preview */}
+                    {rally.events && rally.events.length > 0 && (
+                      <div className="flex items-center space-x-2 text-slate-300">
+                        <span className="text-blue-400">🏁</span>
+                        <span className="font-medium">Events:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {rally.events.slice(0, 2).map((event, index) => (
+                            <span key={event.event_id} className="flex items-center space-x-1">
+                              <span className="text-sm text-slate-400">
+                                {getSurfaceTypeIcon(event.surface_type)}
+                              </span>
+                              <span className="text-sm">{event.event_name}</span>
+                              {event.country && (
+                                <span className="text-xs text-slate-500">({event.country})</span>
+                              )}
+                            </span>
+                          ))}
+                          {rally.events.length > 2 && (
+                            <span className="text-sm text-slate-500">
+                              +{rally.events.length - 2} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -180,8 +214,8 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
                     
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
-                        <span className="text-slate-400 w-20">Event:</span>
-                        <span className="text-white font-medium">{rally.event_name}</span>
+                        <span className="text-slate-400 w-20">Game:</span>
+                        <span className="text-white font-medium">{rally.game_name}</span>
                       </div>
                       
                       <div className="flex items-center space-x-3">
@@ -198,33 +232,9 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
                           )}
                         </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Additional Info */}
-                  <div>
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
-                      <span>📋</span>
-                      <span>Additional Information</span>
-                    </h4>
-                    
-                    <div className="space-y-3">
-                      {rally.optional_notes ? (
-                        <div>
-                          <span className="text-slate-400 block mb-1">Notes:</span>
-                          <p className="text-white bg-slate-800/50 rounded-lg p-3 text-sm">
-                            {rally.optional_notes}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-3">
-                          <span className="text-slate-400">Notes:</span>
-                          <span className="text-slate-500 italic">No additional notes</span>
-                        </div>
-                      )}
-                      
                       <div className="flex items-center space-x-3">
-                        <span className="text-slate-400">Status:</span>
+                        <span className="text-slate-400 w-20">Status:</span>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           registrationOpen 
                             ? 'bg-green-500/20 text-green-400' 
@@ -235,7 +245,71 @@ export function RallyDisplay({ rallies, showLimit = 3, onRegister }: RallyDispla
                       </div>
                     </div>
                   </div>
+
+                  {/* Events List */}
+                  <div>
+                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+                      <span>📍</span>
+                      <span>Rally Events ({rally.events?.length || 0})</span>
+                    </h4>
+                    
+                    {rally.events && rally.events.length > 0 ? (
+                      <div className="space-y-3">
+                        {rally.events
+                          .sort((a, b) => a.event_order - b.event_order)
+                          .map((event, index) => (
+                          <div 
+                            key={event.event_id}
+                            className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/30"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <span className="flex items-center justify-center w-6 h-6 bg-blue-500/20 text-blue-400 text-xs font-bold rounded-full">
+                                    {event.event_order}
+                                  </span>
+                                  <h5 className="font-medium text-white">{event.event_name}</h5>
+                                </div>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-slate-400">
+                                  {event.country && (
+                                    <span className="flex items-center space-x-1">
+                                      <span>🌍</span>
+                                      <span>{event.country}</span>
+                                    </span>
+                                  )}
+                                  {event.surface_type && (
+                                    <span className="flex items-center space-x-1">
+                                      <span>{getSurfaceTypeIcon(event.surface_type)}</span>
+                                      <span>{event.surface_type}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-slate-500 italic">No events assigned</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Additional Information */}
+                {rally.optional_notes && (
+                  <div className="mt-6 pt-6 border-t border-slate-700/50">
+                    <h4 className="text-lg font-semibold text-white mb-3 flex items-center space-x-2">
+                      <span>📋</span>
+                      <span>Additional Notes</span>
+                    </h4>
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/30">
+                      <p className="text-slate-300 whitespace-pre-wrap">{rally.optional_notes}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

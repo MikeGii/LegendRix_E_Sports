@@ -4,14 +4,16 @@
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { CreateRallyForm } from '@/components/rally/CreateRallyForm'
-import { GameSettingsForm } from '@/components/rally/GameSettingsForm'
+import { GamesManagement } from '@/components/rally/GamesManagement'
+import { AddGameForm } from '@/components/rally/AddGameForm'
+import { EditGameForm } from '@/components/rally/EditGameForm'
 import { MessageDisplay } from '@/components/shared/MessageDisplay'
 import { TabNavigation } from '@/components/shared/TabNavigation'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useRallyApi } from '@/hooks/useRallyApi'
 import { useState, useEffect } from 'react'
 
-type TabType = 'create-rally' | 'game-settings'
+type TabType = 'create-rally' | 'games' | 'add-game' | 'edit-game'
 
 interface RallyGame {
   id: string
@@ -131,7 +133,7 @@ export default function RallyCreationPage() {
       const newRally = await createRally({
         gameId: rallyData.gameId,
         typeId: rallyData.typeId,
-        eventIds: rallyData.eventIds, // Now sending array of event IDs
+        eventIds: rallyData.eventIds,
         rallyDate: rallyData.rallyDate,
         registrationEndDate: rallyData.registrationEndDate,
         notes: rallyData.notes
@@ -141,12 +143,12 @@ export default function RallyCreationPage() {
       showMessage('success', `Rally created successfully with ${rallyData.eventIds.length} event(s)!`)
     } catch (err) {
       console.error('Failed to create rally:', err)
-      // Error is already handled by the hook and will show via useEffect
     }
   }
 
-  const handleSaveGameSettings = async (gameData: {
+  const handleSaveGame = async (gameData: {
     gameName: string
+    gameDescription?: string
     rallyTypes: string[]
     rallyEvents: string[]
   }) => {
@@ -166,59 +168,22 @@ export default function RallyCreationPage() {
     }
     
     try {
-      console.log('Saving game settings:', gameData)
+      console.log('Saving game:', gameData)
       const result = await createGameSetup({
         gameName: gameData.gameName,
+        gameDescription: gameData.gameDescription,
         rallyTypes: gameData.rallyTypes,
         rallyEvents: gameData.rallyEvents
       })
       
-      console.log('Game setup created successfully:', result)
-      showMessage('success', 'Game settings saved successfully!')
+      console.log('Game created successfully:', result)
+      showMessage('success', 'Game created successfully!')
       
-      // Refresh games list
+      // Refresh games list and switch to games tab
       await loadAllData()
+      setActiveTab('games')
     } catch (err) {
-      console.error('Failed to save game settings:', err)
-      // Error is already handled by the hook and will show via useEffect
-    }
-  }
-
-  const handleEditGameSettings = async (gameId: string, gameData: {
-    newRallyTypes: string[]
-    newRallyEvents: string[]
-  }) => {
-    if (gameData.newRallyTypes.length === 0 && gameData.newRallyEvents.length === 0) {
-      showMessage('error', 'At least one new rally type or event is required')
-      return
-    }
-    
-    try {
-      console.log('Adding to existing game:', gameData)
-      
-      const promises = []
-      
-      // Add new types if any
-      if (gameData.newRallyTypes.length > 0) {
-        promises.push(addRallyTypes(gameId, gameData.newRallyTypes))
-      }
-      
-      // Add new events if any
-      if (gameData.newRallyEvents.length > 0) {
-        promises.push(addRallyEvents(gameId, gameData.newRallyEvents))
-      }
-      
-      await Promise.all(promises)
-      
-      console.log('Successfully added new items to game')
-      showMessage('success', 'New rally types and events added successfully!')
-      
-      // Cancel edit mode and refresh data
-      setEditingGame(null)
-      await loadAllData()
-    } catch (err) {
-      console.error('Failed to add to existing game:', err)
-      // Error is already handled by the hook and will show via useEffect
+      console.error('Failed to save game:', err)
     }
   }
 
@@ -233,8 +198,8 @@ export default function RallyCreationPage() {
         existingEvents: events
       })
       
-      // Switch to game settings tab
-      setActiveTab('game-settings')
+      // Switch to edit game tab
+      setActiveTab('edit-game')
       
       console.log('Game data loaded for editing - Types:', types.length, 'Events:', events.length)
     } catch (err) {
@@ -242,13 +207,66 @@ export default function RallyCreationPage() {
     }
   }
 
+  const handleUpdateGame = async (gameData: {
+    newRallyTypes: string[]
+    newRallyEvents: string[]
+    updatedTypes: { id: string; name: string }[]
+    updatedEvents: { id: string; name: string; country?: string; surface_type?: string }[]
+    deletedTypeIds: string[]
+    deletedEventIds: string[]
+  }) => {
+    if (!editingGame) return
+    
+    try {
+      console.log('Updating game:', gameData)
+      
+      const promises = []
+      
+      // Add new types if any
+      if (gameData.newRallyTypes.length > 0) {
+        promises.push(addRallyTypes(editingGame.game.id, gameData.newRallyTypes))
+      }
+      
+      // Add new events if any
+      if (gameData.newRallyEvents.length > 0) {
+        promises.push(addRallyEvents(editingGame.game.id, gameData.newRallyEvents))
+      }
+      
+      // TODO: Add API calls for updating and deleting existing items
+      // These would be new API endpoints that need to be created
+      
+      await Promise.all(promises)
+      
+      console.log('Successfully updated game')
+      showMessage('success', 'Game updated successfully!')
+      
+      // Cancel edit mode and refresh data
+      setEditingGame(null)
+      setActiveTab('games')
+      await loadAllData()
+    } catch (err) {
+      console.error('Failed to update game:', err)
+    }
+  }
+
   const handleCancelEdit = () => {
     setEditingGame(null)
+    setActiveTab('games')
+  }
+
+  const handleSwitchToAddGame = () => {
+    setActiveTab('add-game')
+  }
+
+  const handleBackToGames = () => {
+    setActiveTab('games')
   }
 
   const tabs = [
     { id: 'create-rally', label: 'Create Rally', icon: '🏁' },
-    { id: 'game-settings', label: 'Game Settings', icon: '⚙️' }
+    { id: 'games', label: 'Games', icon: '🎮' },
+    { id: 'add-game', label: 'Add Game', icon: '➕' },
+    ...(editingGame ? [{ id: 'edit-game', label: 'Edit Game', icon: '✏️' }] : [])
   ]
 
   return (
@@ -269,7 +287,10 @@ export default function RallyCreationPage() {
 
           {/* Tab Navigation */}
           <TabNavigation
-            tabs={tabs}
+            tabs={tabs.filter(tab => 
+              tab.id !== 'add-game' || activeTab === 'add-game' ||
+              tab.id !== 'edit-game' || activeTab === 'edit-game'
+            )}
             activeTab={activeTab}
             onTabChange={(tabId) => setActiveTab(tabId as TabType)}
           />
@@ -289,16 +310,33 @@ export default function RallyCreationPage() {
               />
             )}
 
-            {/* Game Settings Tab */}
-            {activeTab === 'game-settings' && (
-              <GameSettingsForm
+            {/* Games Management Tab */}
+            {activeTab === 'games' && (
+              <GamesManagement
                 games={games}
                 isLoading={isLoading}
-                editingGame={editingGame}
-                onSubmit={handleSaveGameSettings}
-                onSubmitEdit={handleEditGameSettings}
-                onCancelEdit={handleCancelEdit}
                 onEditGame={handleEditGame}
+                onAddNewGame={handleSwitchToAddGame}
+                onRefresh={loadAllData}
+              />
+            )}
+
+            {/* Add Game Tab */}
+            {activeTab === 'add-game' && (
+              <AddGameForm
+                isLoading={isLoading}
+                onSubmit={handleSaveGame}
+                onCancel={handleBackToGames}
+              />
+            )}
+
+            {/* Edit Game Tab */}
+            {activeTab === 'edit-game' && editingGame && (
+              <EditGameForm
+                editingGame={editingGame}
+                isLoading={isLoading}
+                onSubmit={handleUpdateGame}
+                onCancel={handleCancelEdit}
               />
             )}
           </div>
