@@ -2,6 +2,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface User {
   id: string
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   // Check for existing token on mount
   useEffect(() => {
@@ -52,7 +54,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok && data.success) {
         localStorage.setItem('auth_token', data.token)
+        
+        // Also set as cookie for middleware
+        document.cookie = `auth_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}` // 7 days
+        
         setUser(data.user)
+        
+        // Redirect based on user role
+        if (data.user.role === 'admin') {
+          router.push('/admin-dashboard')
+        } else {
+          router.push('/user-dashboard')
+        }
+        
         return { success: true, message: data.message }
       } else {
         return { success: false, message: data.error || 'Login failed' }
@@ -88,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('auth_token')
+    // Remove cookie
+    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
     setUser(null)
   }
 
@@ -111,11 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Token is invalid, remove it
         localStorage.removeItem('auth_token')
+        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
         setUser(null)
       }
     } catch (error) {
       console.error('Refresh user error:', error)
       localStorage.removeItem('auth_token')
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
       setUser(null)
     } finally {
       setIsLoading(false)
