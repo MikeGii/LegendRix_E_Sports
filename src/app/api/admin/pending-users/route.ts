@@ -16,13 +16,18 @@ async function verifyAdminToken(request: NextRequest) {
   }
 
   const token = authHeader.substring(7)
-  const decoded = jwt.verify(token, JWT_SECRET) as { userId: string, role: string }
   
-  if (decoded.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET!) as { userId: string; role: string }
+    
+    if (decoded.role !== 'admin') {
+      throw new Error('Admin access required')
+    }
 
-  return decoded.userId
+    return decoded.userId
+  } catch (error) {
+    throw new Error('Invalid token')
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -48,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'No token provided' || error.message === 'Admin access required') {
+      if (error.message === 'No token provided' || error.message === 'Admin access required' || error.message === 'Invalid token') {
         return NextResponse.json(
           { error: error.message },
           { status: 403 }

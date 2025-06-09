@@ -1,7 +1,7 @@
-import { ApiResponseBuilder } from "@/lib/api-response"
-import { handleApiError } from "@/lib/errors"
-import { db } from "@vercel/postgres"
-import { NextResponse } from "next/server"
+import { NextResponse } from 'next/server'
+import { ApiResponseBuilder } from '@/lib/api-response'
+import { handleApiError } from '@/lib/errors'
+import { db } from '@/lib/db'
 
 export async function GET() {
   try {

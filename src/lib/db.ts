@@ -146,7 +146,7 @@ class DatabaseService {
           email_verification_token, 
           email_verification_expires
         )
-        VALUES (${email}, ${passwordHash}, ${name}, ${token}, ${expirationDate})
+        VALUES (${email}, ${passwordHash}, ${name}, ${token}, ${expirationDate.toISOString()})
         RETURNING *
       `
     )

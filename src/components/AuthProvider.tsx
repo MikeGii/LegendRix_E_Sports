@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/logger'
 
 interface User {
   id: string
@@ -20,7 +21,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ 
     success: boolean; 
     message: string; 
-    user?: User  // Add optional user property
+    user?: User
+    needsApproval?: boolean // Add this for better UX
   }>
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; message: string }>
   logout: () => void
@@ -44,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-      const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string) => {
     try {
       console.log('🔐 AuthProvider - attempting login for:', email)
       
@@ -63,11 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('🔐 AuthProvider - login successful, setting tokens and user state')
         
         // Store token in localStorage
-        localStorage.setItem('auth_token', data.token)
+        localStorage.setItem('auth_token', data.data.token)
         
         // Set cookie properly for middleware
         document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-        const cookieValue = `auth_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`
+        const cookieValue = `auth_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax; Secure=${window.location.protocol === 'https:'}`
         document.cookie = cookieValue
         
         console.log('🔐 AuthProvider - tokens set, updating user state')
@@ -76,14 +78,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await new Promise(resolve => setTimeout(resolve, 100))
         
         // Set user state to trigger redirect
-        setUser(data.user)
+        setUser(data.data.user)
         
         console.log('🔐 AuthProvider - user state updated successfully')
         
         // Return user data for navigation
-        return { success: true, message: data.message, user: data.user }
+        return { success: true, message: data.message, user: data.data.user }
       } else {
         console.log('🔐 AuthProvider - login failed:', data.error)
+        
+        // Handle specific approval-related errors
+        if (response.status === 403) {
+          const errorMessage = data.error || 'Access denied'
+          
+          // Check if it's an approval-related issue
+          const isApprovalIssue = errorMessage.toLowerCase().includes('approval') || 
+                                 errorMessage.toLowerCase().includes('pending') ||
+                                 errorMessage.toLowerCase().includes('verify')
+          
+          return { 
+            success: false, 
+            message: errorMessage,
+            needsApproval: isApprovalIssue
+          }
+        }
+        
         return { success: false, message: data.error || 'Login failed' }
       }
     } catch (error) {

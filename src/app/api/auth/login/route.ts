@@ -1,9 +1,17 @@
+import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { ApiResponseBuilder } from '@/lib/api-response'
-import { handleApiError } from '@/lib/errors'
+import { handleApiError, AuthenticationError, AuthorizationError } from '@/lib/errors'
 import { validateInput, loginSchema } from '@/lib/validation'
 import { performance } from '@/lib/performance'
+
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
 
 export async function POST(request: NextRequest) {
   const requestId = `login_${Date.now()}`
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
         email: result.email, 
         role: result.role 
       },
-      process.env.JWT_SECRET!,
+      JWT_SECRET!,
       { expiresIn: '7d' }
     )
 
@@ -85,7 +93,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const { response, status } = handleApiError(error)
-    requestLogger.error('Login failed', error)
+    const errorToLog = error instanceof Error ? error : new Error('Unknown login error')
+    requestLogger.error('Login failed', errorToLog)
     return NextResponse.json(response, { status })
   }
 }

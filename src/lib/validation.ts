@@ -1,6 +1,7 @@
 // src/lib/validation.ts (using Zod for better validation)
 
 import { z } from 'zod'
+import { ValidationError } from './errors'
 
 // Common validation schemas
 export const emailSchema = z

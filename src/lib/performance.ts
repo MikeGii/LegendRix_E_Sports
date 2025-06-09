@@ -1,5 +1,7 @@
 // src/lib/performance.ts
 
+import { logger } from './logger'
+
 interface PerformanceTracker {
   start: number
   operation: string

@@ -157,26 +157,35 @@ class Logger {
     this.info(message, { ...data, userId })
   }
 
-  email(action: string, recipient: string, status: 'sent' | 'failed' | 'bounced', error?: Error): void {
+    email(action: string, recipient: string, status: 'sent' | 'failed' | 'bounced', error?: Error): void {
     const message = `Email ${action} to ${recipient}: ${status}`
     if (status === 'failed' || status === 'bounced') {
-      this.warn(message, { recipient, status }, error)
+        // Include error information in the data object, not as separate parameter
+        this.warn(message, { 
+        recipient, 
+        status, 
+        error: error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        } : undefined
+        })
     } else {
-      this.info(message, { recipient, status })
+        this.info(message, { recipient, status })
     }
-  }
+    }
 
   // Performance logging
-  performance(operation: string, duration: number, data?: any): void {
+    performance(operation: string, duration: number, data?: any): void {
     const message = `Performance: ${operation} took ${duration}ms`
     if (duration > 5000) { // Log as warning if over 5 seconds
-      this.warn(message, data)
+        this.warn(message, data)
     } else if (duration > 1000) { // Log as info if over 1 second
-      this.info(message, data)
+        this.info(message, data)
     } else {
-      this.debug(message, data)
+        this.debug(message, data)
     }
-  }
+    }
 
   // Request context logging (for tracking requests across operations)
   withContext(requestId: string, userId?: string) {

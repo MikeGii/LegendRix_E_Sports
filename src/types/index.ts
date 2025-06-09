@@ -9,6 +9,18 @@ export interface User {
   createdAt: string
 }
 
+export interface LoginResponse {
+  success: boolean
+  message: string
+  user?: User
+  token?: string
+}
+
+export interface RegisterResponse {
+  success: boolean
+  message: string
+}
+
 export interface AuthContextType {
   user: User | null
   isLoading: boolean

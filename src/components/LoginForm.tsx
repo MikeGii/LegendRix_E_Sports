@@ -1,3 +1,4 @@
+// src/components/LoginForm.tsx
 'use client'
 
 import { useState } from 'react'
@@ -19,6 +20,7 @@ export function LoginForm({ onSwitchToRegister, onLoginStart, onLoginError }: Lo
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'error' | 'warning' | 'info'>('error')
   
   const {
     register,
@@ -29,6 +31,7 @@ export function LoginForm({ onSwitchToRegister, onLoginStart, onLoginError }: Lo
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setMessage('')
+    setMessageType('error')
     onLoginStart() // Trigger the parent loading state
     
     console.log('🔐 LoginForm - Attempting login for:', data.email)
@@ -44,13 +47,23 @@ export function LoginForm({ onSwitchToRegister, onLoginStart, onLoginError }: Lo
         // Don't call setIsLoading(false) here for successful login
       } else {
         console.log('❌ LoginForm - Login failed:', result.message)
-        setMessage(result.message)
+        
+        // Handle different types of login failures
+        if (result.needsApproval) {
+          setMessageType('warning')
+          setMessage(result.message)
+        } else {
+          setMessageType('error')
+          setMessage(result.message)
+        }
+        
         setIsLoading(false)
         onLoginError() // Reset parent loading state on error
       }
     } catch (error) {
       console.error('🔐 LoginForm - Unexpected error:', error)
       setMessage('An unexpected error occurred. Please try again.')
+      setMessageType('error')
       setIsLoading(false)
       onLoginError()
     }
@@ -111,10 +124,36 @@ export function LoginForm({ onSwitchToRegister, onLoginStart, onLoginError }: Lo
         )}
       </button>
 
-      {/* Error Message */}
+      {/* Enhanced Error/Warning Messages */}
       {message && (
-        <div className="p-3 rounded-lg bg-red-950/80 border border-red-800/50 animate-pulse">
-          <p className="text-red-200 text-sm text-center">{message}</p>
+        <div className={`p-4 rounded-lg border ${
+          messageType === 'warning' 
+            ? 'bg-yellow-950/80 border-yellow-800/50 animate-pulse' 
+            : messageType === 'info'
+            ? 'bg-blue-950/80 border-blue-800/50'
+            : 'bg-red-950/80 border-red-800/50 animate-pulse'
+        }`}>
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              {messageType === 'warning' && <span className="text-yellow-400 text-lg">⚠️</span>}
+              {messageType === 'info' && <span className="text-blue-400 text-lg">ℹ️</span>}
+              {messageType === 'error' && <span className="text-red-400 text-lg">❌</span>}
+            </div>
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                messageType === 'warning' ? 'text-yellow-200' : 
+                messageType === 'info' ? 'text-blue-200' : 
+                'text-red-200'
+              }`}>
+                {message}
+              </p>
+              {messageType === 'warning' && (
+                <p className="text-xs text-yellow-300 mt-2">
+                  💡 Your account will be activated once an administrator reviews and approves your registration.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

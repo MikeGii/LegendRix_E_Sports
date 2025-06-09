@@ -1,4 +1,3 @@
-// src/app/api/auth/me/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { db } from '@/lib/db'
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7) // Remove 'Bearer ' prefix
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string }
+      const decoded = jwt.verify(token, JWT_SECRET!) as { userId: string }
       
       // Get current user data
       const user = await db.getUserById(decoded.userId)
