@@ -174,6 +174,17 @@ export function AdminDashboard() {
     console.log('🔍 Filtering users with filter:', filter)
     console.log('📋 Total users before filtering:', pendingUsers.length)
     
+    // Log each user's status for debugging
+    pendingUsers.forEach((user, index) => {
+      console.log(`👤 User ${index + 1}:`, {
+        email: user.email,
+        status: user.status,
+        emailVerified: user.emailVerified,
+        adminApproved: user.adminApproved,
+        isFullyApproved: user.status === 'approved' && user.emailVerified && user.adminApproved
+      })
+    })
+    
     let filtered: PendingUser[] = []
     
     switch (filter) {
@@ -189,13 +200,19 @@ export function AdminDashboard() {
         )
         break
       default:
-        // Show all users that are not yet fully approved
-        filtered = pendingUsers.filter(user => 
-          user.status !== 'approved' || !user.emailVerified || !user.adminApproved
-        )
+        // Fixed logic: Show users that need attention (exclude fully approved users)
+        filtered = pendingUsers.filter(user => {
+          const isFullyApproved = user.status === 'approved' && user.emailVerified && user.adminApproved
+          const needsAttention = !isFullyApproved
+          
+          console.log(`🔍 User ${user.email}: fully approved = ${isFullyApproved}, needs attention = ${needsAttention}`)
+          
+          return needsAttention
+        })
     }
     
     console.log('📋 Filtered users:', filtered.length)
+    console.log('📋 Filtered user emails:', filtered.map(u => u.email))
     return filtered
   }
 
