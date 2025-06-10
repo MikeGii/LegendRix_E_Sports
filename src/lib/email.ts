@@ -1,26 +1,81 @@
 // src/lib/email.ts
 import nodemailer from 'nodemailer'
 
-// Email configuration
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: parseInt(process.env.SMTP_PORT || '587') === 465, // true for 465, false for 587
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
+// Email configuration with better error handling
+const createTransporter = () => {
+  const config = {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: parseInt(process.env.SMTP_PORT || '587') === 465, // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    tls: {
+      rejectUnauthorized: process.env.NODE_ENV === 'production' // More permissive in development
+    }
   }
-})
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@ewrc.com'
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  console.log('Email config:', {
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    hasUser: !!config.auth.user,
+    hasPass: !!config.auth.pass
+  })
+
+  return nodemailer.createTransport(config)
+}
+
+const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@ewrc.com'
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000'
+
+// Add proper protocol if missing
+const getBaseUrl = () => {
+  if (BASE_URL.startsWith('http')) {
+    return BASE_URL
+  }
+  return process.env.NODE_ENV === 'production' ? `https://${BASE_URL}` : `http://${BASE_URL}`
+}
+
+// Enhanced email sending with better error handling
+const sendEmailWithRetry = async (mailOptions: any, retries = 3) => {
+  const transporter = createTransporter()
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`Email attempt ${attempt}/${retries}:`, {
+        to: mailOptions.to,
+        subject: mailOptions.subject
+      })
+      
+      // Verify connection first
+      await transporter.verify()
+      console.log('SMTP connection verified')
+      
+      const result = await transporter.sendMail(mailOptions)
+      console.log('Email sent successfully:', result.messageId)
+      return result
+    } catch (error) {
+      console.error(`Email attempt ${attempt} failed:`, error)
+      
+      if (attempt === retries) {
+        throw error
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+    }
+  }
+}
 
 // Email templates
 export async function sendVerificationEmail(email: string, name: string, token: string) {
-  const verificationUrl = `${BASE_URL}/api/auth/verify-email?token=${token}`
+  const baseUrl = getBaseUrl()
+  const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${token}`
+  
+  console.log('Sending verification email to:', email)
+  console.log('Verification URL:', verificationUrl)
   
   const mailOptions = {
     from: FROM_EMAIL,
@@ -97,11 +152,14 @@ E-Sports Rally Championship
     `
   }
 
-  await transporter.sendMail(mailOptions)
+  return await sendEmailWithRetry(mailOptions)
 }
 
 export async function sendApprovalEmail(email: string, name: string) {
-  const loginUrl = `${BASE_URL}`
+  const baseUrl = getBaseUrl()
+  const loginUrl = baseUrl
+  
+  console.log('Sending approval email to:', email)
   
   const mailOptions = {
     from: FROM_EMAIL,
@@ -184,10 +242,12 @@ E-Sports Rally Championship
     `
   }
 
-  await transporter.sendMail(mailOptions)
+  return await sendEmailWithRetry(mailOptions)
 }
 
 export async function sendRejectionEmail(email: string, name: string, reason?: string) {
+  console.log('Sending rejection email to:', email)
+  
   const mailOptions = {
     from: FROM_EMAIL,
     to: email,
@@ -259,12 +319,13 @@ E-Sports Rally Championship
     `
   }
 
-  await transporter.sendMail(mailOptions)
+  return await sendEmailWithRetry(mailOptions)
 }
 
 // Test email configuration
 export async function testEmailConfiguration() {
   try {
+    const transporter = createTransporter()
     await transporter.verify()
     console.log('✅ Email configuration is working')
     return true

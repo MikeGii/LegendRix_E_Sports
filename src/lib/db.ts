@@ -129,33 +129,48 @@ class DatabaseService {
   // USER OPERATIONS
   // ======================
 
-  /**
-   * Create a new user with email verification token
+   /**
+   * Enhanced createUser with better error logging
    */
   async createUser(email: string, passwordHash: string, name: string): Promise<User> {
-    const token = this.generateSecureToken()
-    const expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    try {
+      console.log('Creating user:', { email, name })
+      
+      const token = this.generateSecureToken()
+      const expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
-    const result = await this.executeQuery(
-      'createUser',
-      () => sql`
-        INSERT INTO users (
-          email, 
-          password_hash, 
-          name, 
-          email_verification_token, 
-          email_verification_expires
-        )
-        VALUES (${email}, ${passwordHash}, ${name}, ${token}, ${expirationDate.toISOString()})
-        RETURNING *
-      `
-    )
+      const result = await this.executeQuery(
+        'createUser',
+        () => sql`
+          INSERT INTO users (
+            email, 
+            password_hash, 
+            name, 
+            email_verification_token, 
+            email_verification_expires
+          )
+          VALUES (${email}, ${passwordHash}, ${name}, ${token}, ${expirationDate.toISOString()})
+          RETURNING id, email, name, role, status, email_verified, admin_approved, created_at, updated_at
+        `
+      )
 
-    if (result.rows.length === 0) {
-      throw new AppError('Failed to create user', 500, 'USER_CREATION_FAILED')
+      if (result.rows.length === 0) {
+        throw new AppError('Failed to create user', 500, 'USER_CREATION_FAILED')
+      }
+
+      const user = result.rows[0] as User
+      console.log('User created successfully:', { id: user.id, email: user.email })
+      
+      return user
+    } catch (error) {
+      console.error('Failed to create user:', error)
+      
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        throw new AppError('User with this email already exists', 409, 'DUPLICATE_EMAIL')
+      }
+      
+      throw error
     }
-
-    return result.rows[0] as User
   }
 
   /**
@@ -271,19 +286,51 @@ class DatabaseService {
   }
 
   /**
-   * Get pending users (for admin dashboard)
+   * Get pending users (for admin dashboard) - Fixed version
    */
   async getPendingUsers(): Promise<User[]> {
-    const result = await this.executeQuery(
-      'getPendingUsers',
-      () => sql`
-        SELECT * FROM users 
-        WHERE status IN ('pending_email', 'pending_approval')
-        ORDER BY created_at DESC
-      `
-    )
+    try {
+      const result = await this.executeQuery(
+        'getPendingUsers',
+        () => sql`
+          SELECT 
+            id,
+            email,
+            name,
+            role,
+            status,
+            email_verified,
+            admin_approved,
+            created_at,
+            updated_at
+          FROM users 
+          ORDER BY created_at DESC
+        `
+      )
 
-    return result.rows as User[]
+      console.log('Retrieved users:', result.rows.length)
+      return result.rows as User[]
+    } catch (error) {
+      console.error('Error in getPendingUsers:', error)
+      
+      // Try to check if the table exists
+      try {
+        const tableCheck = await sql`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' AND table_name = 'users'
+        `
+        
+        if (tableCheck.rows.length === 0) {
+          console.error('Users table does not exist!')
+          throw new AppError('Database not properly initialized - users table missing', 500, 'MISSING_TABLE')
+        }
+      } catch (tableError) {
+        console.error('Could not check table existence:', tableError)
+      }
+      
+      throw error
+    }
   }
 
   /**

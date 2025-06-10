@@ -1,6 +1,3 @@
-// scripts/test-email-fixed.js
-// Fixed email test with correct method name
-
 require('dotenv').config({ path: '.env.local' });
 const nodemailer = require('nodemailer');
 
@@ -40,7 +37,7 @@ async function testEmail() {
 
     // Send test email
     console.log('📧 Sending test email via Zone...');
-    const testEmail = {
+    const testEmail = 'noreply-ewrc@ideemoto.ee' {
       from: process.env.FROM_EMAIL || process.env.SMTP_USER,
       to: process.env.SMTP_USER, // Send to yourself
       subject: '🏁 E-WRC Rally Registration - Zone Email Test',
