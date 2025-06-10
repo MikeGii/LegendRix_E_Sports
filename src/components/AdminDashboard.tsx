@@ -1,8 +1,8 @@
-// src/components/AdminDashboard.tsx
+// src/components/AdminDashboard.tsx - FIXED VERSION
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface PendingUser {
   id: string
@@ -37,15 +37,20 @@ export function AdminDashboard() {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending_verification' | 'pending_approval'>('all')
+  const [lastRefresh, setLastRefresh] = useState<number>(Date.now()) // Add refresh trigger
 
-  useEffect(() => {
-    fetchPendingUsers()
-  }, [])
-
-  const fetchPendingUsers = async () => {
+  // Memoized fetch function to prevent infinite re-renders
+  const fetchPendingUsers = useCallback(async () => {
     try {
+      console.log('🔄 Fetching pending users...')
       setIsLoading(true)
       const token = localStorage.getItem('auth_token')
+      
+      if (!token) {
+        console.error('No auth token found')
+        return
+      }
+
       const response = await fetch('/api/admin/pending-users', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -54,31 +59,51 @@ export function AdminDashboard() {
       
       if (response.ok) {
         const data = await response.json()
+        console.log('✅ Pending users fetched:', data.length)
+        
+        // Update users list
         setPendingUsers(data)
         
-        // Calculate stats
+        // Calculate stats from the fetched data
         const stats = {
           totalUsers: data.length,
           pendingEmail: data.filter((u: PendingUser) => !u.emailVerified).length,
-          pendingApproval: data.filter((u: PendingUser) => u.emailVerified && !u.adminApproved).length,
+          pendingApproval: data.filter((u: PendingUser) => u.emailVerified && !u.adminApproved && u.status !== 'rejected').length,
           approved: data.filter((u: PendingUser) => u.status === 'approved').length,
           rejected: data.filter((u: PendingUser) => u.status === 'rejected').length
         }
+        
+        console.log('📊 Updated stats:', stats)
         setUserStats(stats)
       } else {
-        console.error('Failed to fetch pending users')
+        console.error('Failed to fetch pending users:', response.status)
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error details:', errorData)
       }
     } catch (error) {
       console.error('Failed to fetch pending users:', error)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, []) // Empty dependency array since we don't depend on any external values
+
+  // Fetch data on mount and when lastRefresh changes
+  useEffect(() => {
+    fetchPendingUsers()
+  }, [fetchPendingUsers, lastRefresh])
+
+  // Force refresh function
+  const forceRefresh = useCallback(() => {
+    console.log('🔄 Force refresh triggered')
+    setLastRefresh(Date.now())
+  }, [])
 
   const handleUserAction = async (userId: string, action: 'approve' | 'reject', reason?: string) => {
     try {
+      console.log(`🔄 ${action} user:`, userId)
       setActionLoading(userId)
       const token = localStorage.getItem('auth_token')
+      
       const response = await fetch('/api/admin/user-action', {
         method: 'POST',
         headers: {
@@ -90,20 +115,26 @@ export function AdminDashboard() {
 
       if (response.ok) {
         const result = await response.json()
+        console.log(`✅ User ${action} successful:`, result)
         
-        // Refresh the user list
-        await fetchPendingUsers()
+        // Force refresh the user list
+        forceRefresh()
         
         // Close modal if open
         setShowRejectModal(false)
         setSelectedUser(null)
         setRejectionReason('')
+        
+        // Show success message (optional)
+        console.log(`User ${action}d successfully`)
       } else {
         const error = await response.json()
         console.error(`Failed to ${action} user:`, error.error)
+        alert(`Failed to ${action} user: ${error.error}`)
       }
     } catch (error) {
       console.error(`Failed to ${action} user:`, error)
+      alert(`Failed to ${action} user. Please try again.`)
     } finally {
       setActionLoading(null)
     }
@@ -125,14 +156,32 @@ export function AdminDashboard() {
   }
 
   const getFilteredUsers = () => {
+    console.log('🔍 Filtering users with filter:', filter)
+    console.log('📋 Total users before filtering:', pendingUsers.length)
+    
+    let filtered: PendingUser[] = []
+    
     switch (filter) {
       case 'pending_verification':
-        return pendingUsers.filter(user => !user.emailVerified)
+        filtered = pendingUsers.filter(user => !user.emailVerified)
+        break
       case 'pending_approval':
-        return pendingUsers.filter(user => user.emailVerified && !user.adminApproved)
+        filtered = pendingUsers.filter(user => 
+          user.emailVerified && 
+          !user.adminApproved && 
+          user.status !== 'rejected' && 
+          user.status !== 'approved'
+        )
+        break
       default:
-        return pendingUsers
+        // Show all users that are not yet fully approved
+        filtered = pendingUsers.filter(user => 
+          user.status !== 'approved' || !user.emailVerified || !user.adminApproved
+        )
     }
+    
+    console.log('📋 Filtered users:', filtered.length)
+    return filtered
   }
 
   const filteredUsers = getFilteredUsers()
@@ -149,7 +198,7 @@ export function AdminDashboard() {
               <p className="text-slate-400">Manage user registrations and system oversight</p>
             </div>
             <button
-              onClick={fetchPendingUsers}
+              onClick={forceRefresh}
               disabled={isLoading}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-xl transition-all duration-200 font-medium shadow-lg hover:shadow-blue-500/25 disabled:opacity-50"
             >
@@ -168,7 +217,7 @@ export function AdminDashboard() {
           </div>
         </div>
 
-                {/* Quick Action Bar */}
+        {/* Quick Action Bar */}
         <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
           <div className="flex flex-wrap gap-4 justify-center md:justify-start">
             <button className="flex items-center space-x-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25">
@@ -269,7 +318,7 @@ export function AdminDashboard() {
                     : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                All ({pendingUsers.length})
+                All ({filteredUsers.length})
               </button>
               <button
                 onClick={() => setFilter('pending_verification')}
@@ -309,7 +358,7 @@ export function AdminDashboard() {
               <h3 className="text-lg font-semibold text-white mb-2">No users found</h3>
               <p className="text-slate-400">
                 {filter === 'all' 
-                  ? 'No users have registered yet.' 
+                  ? 'No users need attention at this time.' 
                   : filter === 'pending_verification'
                   ? 'No users are waiting for email verification.'
                   : 'No users are ready for approval.'}
@@ -379,7 +428,7 @@ export function AdminDashboard() {
                           </div>
                         </td>
                         <td className="p-6">
-                          {user.emailVerified && !user.adminApproved && user.status !== 'rejected' ? (
+                          {user.emailVerified && !user.adminApproved && user.status !== 'rejected' && user.status !== 'approved' ? (
                             <div className="flex space-x-3">
                               <button
                                 onClick={() => handleApprove(user)}

@@ -1,7 +1,7 @@
-// src/app/api/admin/pending-users/route.ts
+// src/app/api/admin/pending-users/route.ts - IMPROVED VERSION
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { db } from '@/lib/db'
+import { sql } from '@vercel/postgres'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +11,6 @@ if (!JWT_SECRET) {
 }
 
 async function verifyAdminToken(request: NextRequest) {
-  // Move request.headers OUTSIDE of try-catch
   const authHeader = request.headers.get('authorization')
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -35,26 +34,67 @@ async function verifyAdminToken(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔄 Admin pending users API called')
+    
     // Verify admin access
     await verifyAdminToken(request)
 
-    // Get all pending users
-    const pendingUsers = await db.getPendingUsers()
+    // Get ALL users for admin dashboard (not just pending)
+    // This allows proper filtering and stats calculation
+    const allUsers = await sql`
+      SELECT 
+        id,
+        email,
+        name,
+        role,
+        status,
+        email_verified,
+        admin_approved,
+        email_verification_token,
+        email_verification_expires,
+        created_at,
+        updated_at
+      FROM users 
+      WHERE role = 'user'  -- Only show regular users, not admins
+      ORDER BY created_at DESC
+    `
 
-    // Format the response
-    const formattedUsers = pendingUsers.map(user => ({
+    console.log(`📊 Retrieved ${allUsers.rows.length} total users`)
+
+    // Format the response with proper camelCase conversion
+    const formattedUsers = allUsers.rows.map(user => ({
       id: user.id,
       name: user.name,
       email: user.email,
       createdAt: user.created_at.toISOString(),
       emailVerified: user.email_verified,
       adminApproved: user.admin_approved,
-      status: user.status
+      status: user.status,
+      role: user.role
     }))
 
-    return NextResponse.json(formattedUsers)
+    // Log some stats for debugging
+    const stats = {
+      total: formattedUsers.length,
+      pendingEmail: formattedUsers.filter(u => !u.emailVerified).length,
+      pendingApproval: formattedUsers.filter(u => u.emailVerified && !u.adminApproved && u.status !== 'rejected' && u.status !== 'approved').length,
+      approved: formattedUsers.filter(u => u.status === 'approved').length,
+      rejected: formattedUsers.filter(u => u.status === 'rejected').length
+    }
+
+    console.log('📈 User stats:', stats)
+
+    // Set cache headers to prevent stale data
+    const response = NextResponse.json(formattedUsers)
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+
+    return response
 
   } catch (error) {
+    console.error('❌ Admin pending users API error:', error)
+    
     if (error instanceof Error) {
       if (error.message === 'No token provided' || error.message === 'Admin access required' || error.message === 'Invalid token') {
         return NextResponse.json(
@@ -64,7 +104,6 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.error('Get pending users error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
