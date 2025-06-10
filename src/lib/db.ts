@@ -285,53 +285,40 @@ class DatabaseService {
     }
   }
 
-  /**
-   * Get pending users (for admin dashboard) - Fixed version
-   */
-  async getPendingUsers(): Promise<User[]> {
-    try {
-      const result = await this.executeQuery(
-        'getPendingUsers',
-        () => sql`
-          SELECT 
-            id,
-            email,
-            name,
-            role,
-            status,
-            email_verified,
-            admin_approved,
-            created_at,
-            updated_at
-          FROM users 
-          ORDER BY created_at DESC
-        `
-      )
+ /**
+ * Get pending users (for admin dashboard) - Corrected version
+ */
+async getPendingUsers(): Promise<User[]> {
+  try {
+    const result = await this.executeQuery(
+      'getPendingUsers',
+      () => sql`
+        SELECT 
+          id,
+          email,
+          name,
+          role,
+          status,
+          email_verified,
+          admin_approved,
+          email_verification_token,
+          email_verification_expires,
+          created_at,
+          updated_at
+        FROM users 
+        WHERE status IN ('pending_email', 'pending_approval') 
+           OR (email_verified = true AND admin_approved = false AND status != 'rejected')
+        ORDER BY created_at DESC
+      `
+    )
 
-      console.log('Retrieved users:', result.rows.length)
-      return result.rows as User[]
-    } catch (error) {
-      console.error('Error in getPendingUsers:', error)
-      
-      // Try to check if the table exists
-      try {
-        const tableCheck = await sql`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' AND table_name = 'users'
-        `
-        
-        if (tableCheck.rows.length === 0) {
-          console.error('Users table does not exist!')
-          throw new AppError('Database not properly initialized - users table missing', 500, 'MISSING_TABLE')
-        }
-      } catch (tableError) {
-        console.error('Could not check table existence:', tableError)
-      }
-      
-      throw error
-    }
+    console.log('Retrieved pending users:', result.rows.length)
+    return result.rows as User[]
+  } catch (error) {
+    console.error('Error in getPendingUsers:', error)
+    throw error
   }
+}
 
   /**
    * Verify email with token validation

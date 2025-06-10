@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Try sending a test email
-    const testEmail = 'your-test-email@example.com' // Replace with your email
+    const testEmail = 'noreply-ewrc@ideemoto.ee' // Replace with your email
     await sendVerificationEmail(testEmail, 'Test User', 'test-token-123')
 
     return NextResponse.json({
