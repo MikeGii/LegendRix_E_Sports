@@ -29,7 +29,7 @@ const createTransporter = () => {
     user: config.auth.user
   })
 
-  return nodemailer.createTransporter(config)
+  return nodemailer.createTransport(config)
 }
 
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply-ewrc@ideemoto.ee'
