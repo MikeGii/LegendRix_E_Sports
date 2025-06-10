@@ -6,6 +6,8 @@ import { ApiResponseBuilder } from '@/lib/api-response'
 import { handleApiError, AuthorizationError, ValidationError } from '@/lib/errors'
 import { logger } from '@/lib/logger'
 
+export const dynamic = 'force-dynamic'
+
 const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required')

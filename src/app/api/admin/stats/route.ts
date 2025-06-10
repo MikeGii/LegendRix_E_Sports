@@ -3,6 +3,8 @@ import { ApiResponseBuilder } from '@/lib/api-response'
 import { handleApiError } from '@/lib/errors'
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const stats = await db.getStats()
