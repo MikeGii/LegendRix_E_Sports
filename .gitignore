@@ -6,6 +6,22 @@ node_modules/
 .next/
 out/
 
+# Test codes for SMTP
+src/app/api/fix-admin-password
+src/app/api/test-db
+src/app/api/test-email
+src/app/api/test-external-email
+src/app/api/test-real-registration
+src/app/api/test-registarion
+
+scripts/check-env.js
+scripts/complete-schema.js
+scripts/debug-login.js
+scripts/detect-smtl.js
+scripts/test-db.js
+scripts/test-email.js
+scripts/test-zone-ssl-fix.js
+
 # Environment variables (IMPORTANT!)
 .env.local
 .env.development.local

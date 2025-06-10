@@ -51,24 +51,29 @@ export function AdminDashboard() {
         return
       }
 
-      const response = await fetch('/api/admin/pending-users', {
+      // Add cache busting to ensure fresh data
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/admin/pending-users?t=${timestamp}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       })
       
       if (response.ok) {
         const data = await response.json()
         console.log('✅ Pending users fetched:', data.length)
+        console.log('📋 Raw user data:', data)
         
-        // Update users list
+        // Update users list with fresh data
         setPendingUsers(data)
         
         // Calculate stats from the fetched data
         const stats = {
           totalUsers: data.length,
           pendingEmail: data.filter((u: PendingUser) => !u.emailVerified).length,
-          pendingApproval: data.filter((u: PendingUser) => u.emailVerified && !u.adminApproved && u.status !== 'rejected').length,
+          pendingApproval: data.filter((u: PendingUser) => u.emailVerified && !u.adminApproved && u.status !== 'rejected' && u.status !== 'approved').length,
           approved: data.filter((u: PendingUser) => u.status === 'approved').length,
           rejected: data.filter((u: PendingUser) => u.status === 'rejected').length
         }
@@ -117,8 +122,18 @@ export function AdminDashboard() {
         const result = await response.json()
         console.log(`✅ User ${action} successful:`, result)
         
-        // Force refresh the user list
-        forceRefresh()
+        // Immediately update the local state to remove the user from the list
+        setPendingUsers(prevUsers => {
+          const updatedUsers = prevUsers.filter(user => user.id !== userId)
+          console.log(`🔄 Removed user ${userId} from local state. Remaining users:`, updatedUsers.length)
+          return updatedUsers
+        })
+        
+        // Force refresh the user list from database after a short delay
+        setTimeout(() => {
+          console.log('🔄 Force refreshing from database...')
+          forceRefresh()
+        }, 500)
         
         // Close modal if open
         setShowRejectModal(false)

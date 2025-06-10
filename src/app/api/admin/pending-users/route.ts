@@ -34,10 +34,14 @@ async function verifyAdminToken(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔄 Admin pending users API called')
+    const timestamp = new Date().toISOString()
+    console.log(`🔄 Admin pending users API called at ${timestamp}`)
     
     // Verify admin access
     await verifyAdminToken(request)
+
+    // Add a small delay to ensure database consistency after writes
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     // Get ALL users for admin dashboard (not just pending)
     // This allows proper filtering and stats calculation
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC
     `
 
-    console.log(`📊 Retrieved ${allUsers.rows.length} total users`)
+    console.log(`📊 Retrieved ${allUsers.rows.length} total users at ${timestamp}`)
 
     // Format the response with proper camelCase conversion
     const formattedUsers = allUsers.rows.map(user => ({
@@ -82,13 +86,24 @@ export async function GET(request: NextRequest) {
       rejected: formattedUsers.filter(u => u.status === 'rejected').length
     }
 
-    console.log('📈 User stats:', stats)
+    console.log(`📈 User stats at ${timestamp}:`, stats)
+    
+    // Log first few users for debugging
+    console.log('👥 Sample users:', formattedUsers.slice(0, 3).map(u => ({
+      id: u.id.substring(0, 8),
+      email: u.email,
+      status: u.status,
+      emailVerified: u.emailVerified,
+      adminApproved: u.adminApproved
+    })))
 
-    // Set cache headers to prevent stale data
+    // Set strong cache headers to prevent any caching
     const response = NextResponse.json(formattedUsers)
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
     response.headers.set('Pragma', 'no-cache')
     response.headers.set('Expires', '0')
+    response.headers.set('Surrogate-Control', 'no-store')
+    response.headers.set('X-Timestamp', timestamp)
 
     return response
 
