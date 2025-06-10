@@ -28,7 +28,7 @@ const createTransporter = () => {
 }
 
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@ewrc.com'
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'http://localhost:3000'
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'https://legend-rix-e-sports.vercel.app/'
 
 // Add proper protocol if missing
 const getBaseUrl = () => {
