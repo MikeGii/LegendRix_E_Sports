@@ -285,14 +285,14 @@ class DatabaseService {
     }
   }
 
- /**
- * Get pending users (for admin dashboard) - Corrected version
- */
-async getPendingUsers(): Promise<User[]> {
-  try {
-    const result = await this.executeQuery(
-      'getPendingUsers',
-      () => sql`
+  /**
+   * Get pending users - IMPROVED VERSION
+   */
+  async getPendingUsers(): Promise<User[]> {
+    try {
+      console.log('Fetching pending users...')
+      
+      const result = await sql`
         SELECT 
           id,
           email,
@@ -306,19 +306,27 @@ async getPendingUsers(): Promise<User[]> {
           created_at,
           updated_at
         FROM users 
-        WHERE status IN ('pending_email', 'pending_approval') 
-           OR (email_verified = true AND admin_approved = false AND status != 'rejected')
+        WHERE (
+          -- Users who need email verification
+          (email_verified = false AND status = 'pending_email')
+          OR 
+          -- Users who verified email but need admin approval
+          (email_verified = true AND admin_approved = false AND status = 'pending_approval')
+          OR
+          -- Users in any pending state
+          status IN ('pending_email', 'pending_approval')
+        )
+        AND role = 'user'  -- Don't include admins
         ORDER BY created_at DESC
       `
-    )
 
-    console.log('Retrieved pending users:', result.rows.length)
-    return result.rows as User[]
-  } catch (error) {
-    console.error('Error in getPendingUsers:', error)
-    throw error
+      console.log('Retrieved pending users:', result.rows.length)
+      return result.rows as User[]
+    } catch (error) {
+      console.error('Error in getPendingUsers:', error)
+      throw error
+    }
   }
-}
 
   /**
    * Verify email with token validation
@@ -351,69 +359,116 @@ async getPendingUsers(): Promise<User[]> {
     return result.rowCount > 0
   }
 
-  /**
-   * Approve user with transaction-like behavior
+    /**
+   * Approve user with transaction-like behavior - FIXED VERSION
    */
   async approveUser(userId: string, adminId: string, reason?: string): Promise<boolean> {
-    return this.withTransaction(async () => {
-      // First, update the user status
-      const userResult = await this.executeQuery(
-        'approveUser',
-        () => sql`
-          UPDATE users 
-          SET 
-            admin_approved = true,
-            status = CASE 
-              WHEN email_verified = true THEN 'approved'
-              ELSE 'pending_email'
-            END,
-            updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${userId}
-          RETURNING *
-        `
-      )
+    try {
+      console.log('Starting user approval:', { userId, adminId, reason })
+      
+      // First, get the current user to check their state
+      const currentUser = await sql`SELECT * FROM users WHERE id = ${userId}`
+      
+      if (currentUser.rows.length === 0) {
+        console.log('User not found for approval:', userId)
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND')
+      }
+      
+      const user = currentUser.rows[0]
+      console.log('Current user state:', {
+        id: user.id,
+        email: user.email,
+        email_verified: user.email_verified,
+        admin_approved: user.admin_approved,
+        status: user.status
+      })
+      
+      // Update the user - set both admin_approved AND status correctly
+      const userResult = await sql`
+        UPDATE users 
+        SET 
+          admin_approved = true,
+          status = CASE 
+            WHEN email_verified = true THEN 'approved'
+            ELSE 'pending_email'
+          END,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${userId}
+        RETURNING *
+      `
 
       if (userResult.rowCount === 0) {
-        throw new AppError('User not found or already processed', 404, 'USER_NOT_FOUND')
+        console.log('Failed to update user during approval')
+        throw new AppError('Failed to update user', 500, 'UPDATE_FAILED')
       }
 
-      // Log the admin action
-      await this.logAdminAction(adminId, userId, 'approve', reason)
+      const updatedUser = userResult.rows[0]
+      console.log('User updated successfully:', {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        email_verified: updatedUser.email_verified,
+        admin_approved: updatedUser.admin_approved,
+        status: updatedUser.status
+      })
 
+      // Log the admin action
+      const actionResult = await sql`
+        INSERT INTO admin_actions (admin_id, target_user_id, action, reason)
+        VALUES (${adminId}, ${userId}, 'approve', ${reason || null})
+        RETURNING *
+      `
+      
+      console.log('Admin action logged:', actionResult.rows[0])
+      
       return true
-    })
+    } catch (error) {
+      console.error('Error in approveUser:', error)
+      throw error
+    }
   }
 
   /**
-   * Reject user with transaction-like behavior
+   * Reject user with transaction-like behavior - FIXED VERSION
    */
   async rejectUser(userId: string, adminId: string, reason?: string): Promise<boolean> {
-    return this.withTransaction(async () => {
+    try {
+      console.log('Starting user rejection:', { userId, adminId, reason })
+      
       // First, update the user status
-      const userResult = await this.executeQuery(
-        'rejectUser',
-        () => sql`
-          UPDATE users 
-          SET 
-            admin_approved = false,
-            status = 'rejected',
-            updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${userId}
-          RETURNING *
-        `
-      )
+      const userResult = await sql`
+        UPDATE users 
+        SET 
+          admin_approved = false,
+          status = 'rejected',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${userId}
+        RETURNING *
+      `
 
       if (userResult.rowCount === 0) {
+        console.log('User not found for rejection:', userId)
         throw new AppError('User not found or already processed', 404, 'USER_NOT_FOUND')
       }
 
+      const updatedUser = userResult.rows[0]
+      console.log('User rejected successfully:', {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        status: updatedUser.status
+      })
+
       // Log the admin action
-      await this.logAdminAction(adminId, userId, 'reject', reason)
+      await sql`
+        INSERT INTO admin_actions (admin_id, target_user_id, action, reason)
+        VALUES (${adminId}, ${userId}, 'reject', ${reason || null})
+      `
 
       return true
-    })
+    } catch (error) {
+      console.error('Error in rejectUser:', error)
+      throw error
+    }
   }
-
   /**
    * Update user profile
    */

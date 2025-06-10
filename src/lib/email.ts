@@ -1,84 +1,116 @@
-// src/lib/email.ts
+// src/lib/email.ts - Updated for Zone.eu SMTP
+
 import nodemailer from 'nodemailer'
 
-// Email configuration with better error handling
+// Email configuration optimized for Zone.eu SMTP
 const createTransporter = () => {
   const config = {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: parseInt(process.env.SMTP_PORT || '587') === 465, // true for 465, false for other ports
+    host: process.env.SMTP_HOST || 'smtp.zone.eu',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: true, // Zone.eu uses port 465 which requires secure: true
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
     tls: {
-      rejectUnauthorized: process.env.NODE_ENV === 'production' // More permissive in development
-    }
+      rejectUnauthorized: false, // Zone.eu sometimes needs this for compatibility
+      servername: process.env.SMTP_HOST || 'smtp.zone.eu'
+    },
+    debug: process.env.NODE_ENV === 'development', // Enable debug in development
+    logger: process.env.NODE_ENV === 'development' // Enable logging in development
   }
 
-  console.log('Email config:', {
+  console.log('Zone.eu Email config:', {
     host: config.host,
     port: config.port,
     secure: config.secure,
     hasUser: !!config.auth.user,
-    hasPass: !!config.auth.pass
+    hasPass: !!config.auth.pass,
+    user: config.auth.user
   })
 
-  return nodemailer.createTransport(config)
+  return nodemailer.createTransporter(config)
 }
 
-const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@ewrc.com'
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || 'https://legend-rix-e-sports.vercel.app/'
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply-ewrc@ideemoto.ee'
 
-// Add proper protocol if missing
+// FIXED BASE URL HANDLING FOR VERCEL
 const getBaseUrl = () => {
-  if (BASE_URL.startsWith('http')) {
-    return BASE_URL
+  // Get the base URL from environment
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  
+  if (baseUrl) {
+    // If it already has protocol, return as is
+    if (baseUrl.startsWith('http')) {
+      return baseUrl.replace(/\/$/, '')
+    }
+    // If no protocol, add https://
+    return `https://${baseUrl}`.replace(/\/$/, '')
   }
-  return process.env.NODE_ENV === 'production' ? `https://${BASE_URL}` : `http://${BASE_URL}`
+  
+  // Fallback to Vercel URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  
+  // Final fallback
+  return 'https://legend-rix-e-sports.vercel.app'
 }
 
-// Enhanced email sending with better error handling
+// Enhanced email sending with Zone.eu specific handling
 const sendEmailWithRetry = async (mailOptions: any, retries = 3) => {
   const transporter = createTransporter()
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      console.log(`Email attempt ${attempt}/${retries}:`, {
+      console.log(`Zone.eu email attempt ${attempt}/${retries}:`, {
         to: mailOptions.to,
-        subject: mailOptions.subject
+        subject: mailOptions.subject,
+        from: mailOptions.from
       })
       
-      // Verify connection first
+      // Verify connection first (important for Zone.eu)
+      console.log('Verifying Zone.eu SMTP connection...')
       await transporter.verify()
-      console.log('SMTP connection verified')
+      console.log('✅ Zone.eu SMTP connection verified')
       
       const result = await transporter.sendMail(mailOptions)
-      console.log('Email sent successfully:', result.messageId)
+      console.log('✅ Email sent successfully via Zone.eu:', {
+        messageId: result.messageId,
+        response: result.response
+      })
       return result
     } catch (error) {
-      console.error(`Email attempt ${attempt} failed:`, error)
+      console.error(`❌ Zone.eu email attempt ${attempt} failed:`, {
+        error: error instanceof Error ? error.message : error,
+        code: error instanceof Error && 'code' in error ? error.code : 'unknown'
+      })
       
       if (attempt === retries) {
+        console.error('❌ All Zone.eu email attempts failed')
         throw error
       }
       
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+      // Wait before retry (Zone.eu sometimes needs a brief pause)
+      await new Promise(resolve => setTimeout(resolve, 2000 * attempt))
     }
   }
 }
 
-// Email templates
+// Email templates (keeping your existing templates but with improved logging)
 export async function sendVerificationEmail(email: string, name: string, token: string) {
   const baseUrl = getBaseUrl()
   const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${token}`
   
-  console.log('Sending verification email to:', email)
-  console.log('Verification URL:', verificationUrl)
+  console.log('🔄 Preparing verification email via Zone.eu:', {
+    to: email,
+    from: FROM_EMAIL,
+    baseUrl,
+    verificationUrl
+  })
   
   const mailOptions = {
-    from: FROM_EMAIL,
+    from: `"E-WRC Rally Registration" <${FROM_EMAIL}>`, // Proper sender format
     to: email,
     subject: '🏁 E-WRC Rally Registration - Verify Your Email',
     html: `
@@ -159,10 +191,13 @@ export async function sendApprovalEmail(email: string, name: string) {
   const baseUrl = getBaseUrl()
   const loginUrl = baseUrl
   
-  console.log('Sending approval email to:', email)
+  console.log('🔄 Preparing approval email via Zone.eu:', {
+    to: email,
+    from: FROM_EMAIL
+  })
   
   const mailOptions = {
-    from: FROM_EMAIL,
+    from: `"E-WRC Rally Registration" <${FROM_EMAIL}>`,
     to: email,
     subject: '🎉 E-WRC Rally Registration - Account Approved!',
     html: `
@@ -246,10 +281,13 @@ E-Sports Rally Championship
 }
 
 export async function sendRejectionEmail(email: string, name: string, reason?: string) {
-  console.log('Sending rejection email to:', email)
+  console.log('🔄 Preparing rejection email via Zone.eu:', {
+    to: email,
+    from: FROM_EMAIL
+  })
   
   const mailOptions = {
-    from: FROM_EMAIL,
+    from: `"E-WRC Rally Registration" <${FROM_EMAIL}>`,
     to: email,
     subject: 'E-WRC Rally Registration - Application Update',
     html: `
@@ -322,15 +360,16 @@ E-Sports Rally Championship
   return await sendEmailWithRetry(mailOptions)
 }
 
-// Test email configuration
+// Test email configuration specifically for Zone.eu
 export async function testEmailConfiguration() {
   try {
+    console.log('🔄 Testing Zone.eu email configuration...')
     const transporter = createTransporter()
     await transporter.verify()
-    console.log('✅ Email configuration is working')
+    console.log('✅ Zone.eu email configuration is working')
     return true
   } catch (error) {
-    console.error('❌ Email configuration failed:', error)
+    console.error('❌ Zone.eu email configuration failed:', error)
     return false
   }
 }
