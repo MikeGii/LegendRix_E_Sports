@@ -1,6 +1,13 @@
 // src/hooks/useRallyApi.ts
 import { useState, useCallback } from 'react'
 
+interface UpdateRallyData {
+  rallyDate?: string
+  registrationEndDate?: string
+  notes?: string
+  eventIds?: string[]
+}
+
 // Types - Updated Rally interface with events array
 interface RallyGame {
   id: string
@@ -451,6 +458,160 @@ export function useRallyApi() {
     }
   }, [])
 
+  // Update an existing rally
+  const updateRally = useCallback(async (rallyId: string, updateData: UpdateRallyData): Promise<void> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`/api/rally/rallies/${rallyId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update rally')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Cancel/delete a rally
+  const cancelRally = useCallback(async (rallyId: string, reason?: string): Promise<void> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`/api/rally/rallies/${rallyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ reason }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to cancel rally')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Get rally registrations count
+  const getRallyRegistrations = useCallback(async (rallyId: string): Promise<{
+    totalRegistrations: number
+    registrations: Array<{
+      id: string
+      userName: string
+      userEmail: string
+      registeredAt: string
+      notes?: string
+    }>
+  }> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`/api/rally/rallies/${rallyId}/registrations`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.success && data.data) {
+        return data.data
+      } else {
+        throw new Error(data.error || 'Failed to fetch rally registrations')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Get all rallies for management (including past ones)
+  const fetchAllRallies = useCallback(async (filters?: {
+    gameId?: string
+    status?: 'upcoming' | 'active' | 'past' | 'cancelled'
+    limit?: number
+    offset?: number
+  }): Promise<any[]> => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const searchParams = new URLSearchParams()
+      if (filters?.gameId) searchParams.set('gameId', filters.gameId)
+      if (filters?.status) searchParams.set('status', filters.status)
+      if (filters?.limit) searchParams.set('limit', filters.limit.toString())
+      if (filters?.offset) searchParams.set('offset', filters.offset.toString())
+      
+      const token = getAuthToken()
+      const response = await fetch(`/api/rally/rallies/manage?${searchParams.toString()}`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.success && data.data) {
+        return data.data
+      } else {
+        throw new Error(data.error || 'Failed to fetch rallies')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   return {
     // State
     isLoading,
@@ -471,6 +632,10 @@ export function useRallyApi() {
     updateRallyEvent,
     deleteRallyType,
     deleteRallyEvent,
+    updateRally,
+    cancelRally,
+    getRallyRegistrations,
+    fetchAllRallies,
     
     // Utility
     clearError: () => setError(null),

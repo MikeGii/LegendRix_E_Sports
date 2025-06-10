@@ -68,6 +68,41 @@ export interface RallyEventAssignment {
 // Rally Database Operations Class
 class RallyDatabaseService {
   
+    /**
+     * Execute a query with proper error handling and logging
+     */
+    async executeQuery<T>(
+      queryName: string,
+      queryFn: () => Promise<{ rows: T[]; rowCount: number }>
+    ): Promise<{ rows: T[]; rowCount: number }> {
+      try {
+        logger.info(`Executing rally query: ${queryName}`)
+        const result = await queryFn()
+        logger.info(`Rally query ${queryName} completed successfully`, {
+          rowCount: result.rowCount
+        })
+        return result
+      } catch (error) {
+        logger.error(`Rally query ${queryName} failed:`, error)
+        
+        // Map common database errors to user-friendly messages
+        if (error instanceof Error) {
+          if (error.message.includes('unique constraint')) {
+            throw new AppError('Resource already exists', 409, 'DUPLICATE_RESOURCE')
+          }
+          if (error.message.includes('foreign key constraint')) {
+            throw new AppError('Referenced resource not found', 404, 'REFERENCE_NOT_FOUND')
+          }
+          if (error.message.includes('connection')) {
+            throw new AppError('Database connection failed', 503, 'DATABASE_UNAVAILABLE')
+          }
+        }
+        
+        throw new AppError('Database operation failed', 500, 'DATABASE_ERROR')
+      }
+    }
+
+
   // ==================
   // RALLY GAMES
   // ==================

@@ -510,7 +510,7 @@ class DatabaseService {
           COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
           COUNT(CASE WHEN status = 'bounced' THEN 1 END) as bounced
         FROM email_logs 
-        WHERE sent_at >= NOW() - INTERVAL '${days} days'
+        WHERE sent_at >= NOW() - INTERVAL ${days} DAY
       `
     )
 

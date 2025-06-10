@@ -1,4 +1,5 @@
-// src/app/rally-creation/page.tsx
+// Update src/app/rally-creation/page.tsx to include the new management tab
+
 'use client'
 
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -7,13 +8,14 @@ import { CreateRallyForm } from '@/components/rally/CreateRallyForm'
 import { GamesManagement } from '@/components/rally/GamesManagement'
 import { AddGameForm } from '@/components/rally/AddGameForm'
 import { EditGameForm } from '@/components/rally/EditGameForm'
+import { RallyManagement } from '@/components/rally/RallyManagement' // Add this import
 import { MessageDisplay } from '@/components/shared/MessageDisplay'
 import { TabNavigation } from '@/components/shared/TabNavigation'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useRallyApi } from '@/hooks/useRallyApi'
 import { useState, useEffect } from 'react'
 
-type TabType = 'create-rally' | 'games' | 'add-game' | 'edit-game'
+type TabType = 'create-rally' | 'manage-rallies' | 'games' | 'add-game' | 'edit-game' // Update this line
 
 interface RallyGame {
   id: string
@@ -311,8 +313,10 @@ export default function RallyCreationPage() {
     setActiveTab('games')
   }
 
+  // Updated tabs array to include rally management
   const tabs = [
     { id: 'create-rally', label: 'Create Rally', icon: '🏁' },
+    { id: 'manage-rallies', label: 'Manage Rallies', icon: '📊' }, // Add this line
     { id: 'games', label: 'Games', icon: '🎮' },
     { id: 'add-game', label: 'Add Game', icon: '➕' },
     ...(editingGame ? [{ id: 'edit-game', label: 'Edit Game', icon: '✏️' }] : [])
@@ -326,7 +330,7 @@ export default function RallyCreationPage() {
           {/* Page Header */}
           <PageHeader
             title="Rally Management"
-            description="Create rallies and manage rally data for the E-WRC community"
+            description="Create rallies, manage rally data, and oversee existing events for the E-WRC community"
             backUrl="/admin-dashboard"
             backLabel="Back to Dashboard"
           />
@@ -337,8 +341,8 @@ export default function RallyCreationPage() {
           {/* Tab Navigation */}
           <TabNavigation
             tabs={tabs.filter(tab => {
-              // Always show create-rally and games tabs
-              if (tab.id === 'create-rally' || tab.id === 'games') return true
+              // Always show create-rally, manage-rallies, and games tabs
+              if (tab.id === 'create-rally' || tab.id === 'manage-rallies' || tab.id === 'games') return true
               
               // Show add-game tab only when active or when no editing
               if (tab.id === 'add-game') return activeTab === 'add-game' && !editingGame
@@ -364,6 +368,14 @@ export default function RallyCreationPage() {
                 isLoading={isLoading}
                 onSubmit={handleCreateRally}
                 onGameChange={handleGameChange}
+              />
+            )}
+
+            {/* Manage Rallies Tab - Add this section */}
+            {activeTab === 'manage-rallies' && (
+              <RallyManagement
+                games={games}
+                onRefresh={loadAllData}
               />
             )}
 
