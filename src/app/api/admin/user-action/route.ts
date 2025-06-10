@@ -72,9 +72,21 @@ export async function POST(request: NextRequest) {
     try {
       switch (action) {
         case 'approve':
-          console.log('Executing approve action...')
-          success = await db.approveUser(userId, adminId, reason)
-          break
+          console.log('Executing approve action...');
+          success = await db.approveUser(userId, adminId, reason);
+          // Verify the update was successful by fetching the user again
+          if (success) {
+            const updatedUser = await db.getUserById(userId);
+            console.log('Post-approval verification:', {
+              status: updatedUser?.status,
+              admin_approved: updatedUser?.admin_approved
+            });
+            if (!updatedUser || updatedUser.status !== 'approved' || !updatedUser.admin_approved) {
+              console.error('Approval verification failed!');
+              success = false;
+            }
+          }
+          break;
         case 'reject':
           console.log('Executing reject action...')
           success = await db.rejectUser(userId, adminId, reason)

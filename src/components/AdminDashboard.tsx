@@ -11,7 +11,7 @@ interface PendingUser {
   createdAt: string
   emailVerified: boolean
   adminApproved: boolean
-  status: string
+  status: 'pending_email' | 'pending_approval' | 'approved' | 'rejected' // Match db.ts
 }
 
 interface UserStats {
@@ -94,9 +94,11 @@ export function AdminDashboard() {
         // Calculate fresh stats
         const stats = {
           totalUsers: data.length,
-          pendingEmail: data.filter((u: PendingUser) => !u.emailVerified).length,
+          pendingEmail: data.filter((u: PendingUser) => u.status === 'pending_email').length,
           pendingApproval: data.filter((u: PendingUser) => 
-            u.emailVerified && !u.adminApproved && u.status !== 'rejected' && u.status !== 'approved'
+            u.status === 'pending_approval' && 
+            u.emailVerified && 
+            !u.adminApproved
           ).length,
           approved: data.filter((u: PendingUser) => u.status === 'approved').length,
           rejected: data.filter((u: PendingUser) => u.status === 'rejected').length
@@ -200,43 +202,25 @@ export function AdminDashboard() {
       handleUserAction(selectedUser.id, 'reject', rejectionReason)
     }
   }
-
   const getFilteredUsers = () => {
-    console.log('🔍 FILTERING USERS:')
-    console.log(`📋 Filter: ${filter}`)
-    console.log(`📋 Total users: ${pendingUsers.length}`)
-    
-    let filtered: PendingUser[] = []
-    
-    switch (filter) {
-      case 'pending_verification':
-        filtered = pendingUsers.filter(user => !user.emailVerified)
-        console.log(`📋 Pending verification: ${filtered.length}`)
-        break
-      case 'pending_approval':
-        filtered = pendingUsers.filter(user => 
-          user.emailVerified && 
-          !user.adminApproved && 
-          user.status !== 'rejected' && 
-          user.status !== 'approved'
-        )
-        console.log(`📋 Pending approval: ${filtered.length}`)
-        break
-      default:
-        // Show users that need attention (exclude fully approved)
-        filtered = pendingUsers.filter(user => {
-          const isFullyApproved = user.status === 'approved' && user.emailVerified && user.adminApproved
-          const needsAttention = !isFullyApproved
-          
-          console.log(`👤 ${user.email}: approved=${user.status === 'approved'}, emailVerified=${user.emailVerified}, adminApproved=${user.adminApproved} → needsAttention=${needsAttention}`)
-          
-          return needsAttention
-        })
-        console.log(`📋 All needing attention: ${filtered.length}`)
-    }
-    
-    console.log(`📋 Final filtered count: ${filtered.length}`)
-    return filtered
+    return pendingUsers.filter(user => {
+      // For "all" filter - show only users that need admin action
+      if (filter === 'all') {
+        return (user.status === 'pending_email' || user.status === 'pending_approval') && 
+              !user.adminApproved;
+      }
+      // For pending verification
+      if (filter === 'pending_verification') {
+        return user.status === 'pending_email' && !user.emailVerified;
+      }
+      // For pending approval
+      if (filter === 'pending_approval') {
+        return user.status === 'pending_approval' && 
+              user.emailVerified && 
+              !user.adminApproved;
+      }
+      return true;
+    });
   }
 
   const filteredUsers = getFilteredUsers()
@@ -513,7 +497,7 @@ export function AdminDashboard() {
                           </div>
                         </td>
                         <td className="p-6">
-                          {user.emailVerified && !user.adminApproved && user.status !== 'rejected' && user.status !== 'approved' ? (
+                          {user.status === 'pending_approval' && user.emailVerified && !user.adminApproved ? (
                             <div className="flex space-x-3">
                               <button
                                 onClick={() => handleApprove(user)}
@@ -531,12 +515,12 @@ export function AdminDashboard() {
                               </button>
                             </div>
                           ) : user.status === 'approved' ? (
-                            <span className="text-green-400 font-medium text-sm">✅ Already Approved</span>
+                            <span className="text-green-400 font-medium text-sm">✅ Approved</span>
                           ) : user.status === 'rejected' ? (
                             <span className="text-red-400 font-medium text-sm">❌ Rejected</span>
                           ) : (
                             <span className="text-slate-500 text-sm">
-                              {!user.emailVerified ? '⏳ Waiting for email verification' : '⏳ Processing...'}
+                              {user.status === 'pending_email' ? '⏳ Waiting for email verification' : '⏳ Processing...'}
                             </span>
                           )}
                         </td>

@@ -37,7 +37,7 @@ async function testEmail() {
 
     // Send test email
     console.log('📧 Sending test email via Zone...');
-    const testEmail = 'noreply-ewrc@ideemoto.ee' {
+    const testEmail = {
       from: process.env.FROM_EMAIL || process.env.SMTP_USER,
       to: process.env.SMTP_USER, // Send to yourself
       subject: '🏁 E-WRC Rally Registration - Zone Email Test',
