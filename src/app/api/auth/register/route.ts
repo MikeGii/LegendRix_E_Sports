@@ -1,4 +1,5 @@
-// Update src/app/api/auth/register/route.ts
+// src/app/api/auth/register/route.ts - Fixed TypeScript errors
+
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
@@ -71,6 +72,16 @@ export async function POST(request: NextRequest) {
     try {
       user = await db.createUser(email, passwordHash, name)
       requestLogger.info('User created successfully', { userId: user.id, email: user.email })
+      
+      // CRITICAL: Log the verification token for debugging
+      console.log('🔑 User created with verification token:', {
+        userId: user.id,
+        email: user.email,
+        hasToken: !!user.email_verification_token,
+        tokenLength: user.email_verification_token?.length || 0,
+        tokenPreview: user.email_verification_token?.substring(0, 8) + '...'
+      })
+      
     } catch (createError) {
       const errorToLog = createError instanceof Error ? createError : new Error('Unknown user creation error')
       requestLogger.error('Failed to create user', errorToLog)
@@ -88,23 +99,74 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send verification email
-    try {
-      if (!user.email_verification_token) {
-        requestLogger.error('No verification token generated for user')
-        throw new Error('No verification token available')
-      }
+    // CRITICAL: Check if verification token exists before sending email
+    if (!user.email_verification_token) {
+      requestLogger.error('No verification token generated for user')
+      console.error('❌ CRITICAL: User created without verification token!', {
+        userId: user.id,
+        email: user.email,
+        userObject: user
+      })
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Registration successful! However, there was an issue with email verification setup. Please contact support.',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          status: user.status,
+          emailVerified: user.email_verified,
+          adminApproved: user.admin_approved
+        },
+        emailSent: false,
+        error: 'No verification token generated'
+      }, { status: 201 })
+    }
 
-      await sendVerificationEmail(user.email, user.name, user.email_verification_token)
+    // Send verification email
+    console.log('📧 Starting verification email process...', {
+      to: user.email,
+      name: user.name,
+      token: user.email_verification_token.substring(0, 8) + '...'
+    })
+    
+    try {
+      console.log('📤 Calling sendVerificationEmail...')
+      const emailResult = await sendVerificationEmail(user.email, user.name, user.email_verification_token)
+      
+      // TypeScript-safe checks for emailResult
+      if (emailResult) {
+        console.log('✅ Verification email sent successfully:', {
+          messageId: emailResult.messageId || 'No messageId',
+          response: emailResult.response || 'No response',
+          accepted: emailResult.accepted || [],
+          rejected: emailResult.rejected || []
+        })
+      } else {
+        console.log('⚠️ Email result was undefined')
+      }
+      
       await db.logEmail(user.id, 'verification', user.email, 'sent')
       requestLogger.info('Verification email sent successfully', { email: user.email })
+      
     } catch (emailError) {
       const errorToLog = emailError instanceof Error ? emailError : new Error('Unknown email error')
       requestLogger.error('Failed to send verification email', errorToLog)
+      
+      console.error('❌ DETAILED EMAIL ERROR:', {
+        error: errorToLog.message,
+        stack: errorToLog.stack,
+        name: errorToLog.name,
+        userEmail: user.email,
+        userName: user.name,
+        token: user.email_verification_token.substring(0, 8) + '...'
+      })
+      
       await db.logEmail(user.id, 'verification', user.email, 'failed')
       
       // Don't fail the registration if email fails - user is created
-      // but warn them about the email issue
       return NextResponse.json({
         success: true,
         message: 'Registration successful! However, there was an issue sending the verification email. Please contact support.',
@@ -117,7 +179,8 @@ export async function POST(request: NextRequest) {
           emailVerified: user.email_verified,
           adminApproved: user.admin_approved
         },
-        emailSent: false
+        emailSent: false,
+        emailError: errorToLog.message
       }, { status: 201 })
     }
 
@@ -141,6 +204,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorToLog = error instanceof Error ? error : new Error('Unknown registration error')
     requestLogger.error('Registration failed with unexpected error', errorToLog)
+    
+    console.error('❌ REGISTRATION PROCESS ERROR:', {
+      error: errorToLog.message,
+      stack: errorToLog.stack,
+      name: errorToLog.name
+    })
     
     return NextResponse.json(
       { 

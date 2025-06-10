@@ -129,15 +129,22 @@ class DatabaseService {
   // USER OPERATIONS
   // ======================
 
-   /**
-   * Enhanced createUser with better error logging
+    /**
+   * Enhanced createUser with better token generation and error logging
    */
-  async createUser(email: string, passwordHash: string, name: string): Promise<User> {
+  async createUser(email: string, passwordHash: string, name: string): Promise<User & { email_verification_token?: string }> {
     try {
-      console.log('Creating user:', { email, name })
+      console.log('🔄 Creating user:', { email, name })
       
+      // Generate verification token
       const token = this.generateSecureToken()
       const expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+      console.log('🔑 Generated verification token:', {
+        tokenLength: token.length,
+        tokenPreview: token.substring(0, 8) + '...',
+        expiresAt: expirationDate.toISOString()
+      })
 
       const result = await this.executeQuery(
         'createUser',
@@ -150,7 +157,17 @@ class DatabaseService {
             email_verification_expires
           )
           VALUES (${email}, ${passwordHash}, ${name}, ${token}, ${expirationDate.toISOString()})
-          RETURNING id, email, name, role, status, email_verified, admin_approved, created_at, updated_at
+          RETURNING 
+            id, 
+            email, 
+            name, 
+            role, 
+            status, 
+            email_verified, 
+            admin_approved, 
+            email_verification_token,
+            created_at, 
+            updated_at
         `
       )
 
@@ -158,12 +175,39 @@ class DatabaseService {
         throw new AppError('Failed to create user', 500, 'USER_CREATION_FAILED')
       }
 
-      const user = result.rows[0] as User
-      console.log('User created successfully:', { id: user.id, email: user.email })
+      const user = result.rows[0] as User & { email_verification_token?: string }
+      
+      console.log('✅ User created successfully:', { 
+        id: user.id, 
+        email: user.email,
+        hasVerificationToken: !!user.email_verification_token,
+        tokenLength: user.email_verification_token?.length || 0
+      })
+      
+      // Verify the token was saved correctly
+      if (!user.email_verification_token) {
+        console.error('❌ CRITICAL: User created but verification token missing from response!', {
+          userId: user.id,
+          email: user.email,
+          providedToken: token.substring(0, 8) + '...'
+        })
+        
+        // Try to fetch the user again to see if token exists in DB
+        const checkUser = await sql`SELECT email_verification_token FROM users WHERE id = ${user.id}`
+        console.log('🔍 Database check for token:', {
+          foundToken: !!checkUser.rows[0]?.email_verification_token,
+          tokenPreview: checkUser.rows[0]?.email_verification_token?.substring(0, 8) + '...'
+        })
+        
+        // Add the token to the response manually if it exists in DB
+        if (checkUser.rows[0]?.email_verification_token) {
+          user.email_verification_token = checkUser.rows[0].email_verification_token
+        }
+      }
       
       return user
     } catch (error) {
-      console.error('Failed to create user:', error)
+      console.error('❌ Failed to create user:', error)
       
       if (error instanceof Error && error.message.includes('duplicate key')) {
         throw new AppError('User with this email already exists', 409, 'DUPLICATE_EMAIL')
