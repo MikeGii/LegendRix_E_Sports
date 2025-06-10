@@ -1,4 +1,4 @@
-// src/components/AdminDashboard.tsx - FIXED VERSION
+// src/components/AdminDashboard.tsx - FORCE FRESH DATA VERSION
 
 'use client'
 
@@ -37,12 +37,13 @@ export function AdminDashboard() {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending_verification' | 'pending_approval'>('all')
-  const [lastRefresh, setLastRefresh] = useState<number>(Date.now()) // Add refresh trigger
 
-  // Memoized fetch function to prevent infinite re-renders
-  const fetchPendingUsers = useCallback(async () => {
+  // Force fresh data with aggressive cache busting
+  const fetchPendingUsers = useCallback(async (forceRefresh = false) => {
     try {
-      console.log('🔄 Fetching pending users...')
+      const timestamp = Date.now()
+      console.log(`🔄 Fetching users at ${new Date().toISOString()} (force: ${forceRefresh})`)
+      
       setIsLoading(true)
       const token = localStorage.getItem('auth_token')
       
@@ -51,61 +52,92 @@ export function AdminDashboard() {
         return
       }
 
-      // Add cache busting to ensure fresh data
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/admin/pending-users?t=${timestamp}`, {
+      // Multiple cache busting strategies
+      const cacheBuster = `t=${timestamp}&r=${Math.random()}&force=${forceRefresh ? '1' : '0'}`
+      
+      const response = await fetch(`/api/admin/pending-users?${cacheBuster}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Timestamp': timestamp.toString()
+        },
+        // Force bypass any caching
+        cache: 'no-store'
       })
+      
+      console.log(`📡 API Response status: ${response.status}`)
+      console.log(`📡 API Response headers:`, Object.fromEntries(response.headers.entries()))
       
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Pending users fetched:', data.length)
-        console.log('📋 Raw user data:', data)
+        console.log(`✅ Fresh data received: ${data.length} users`)
+        console.log('📋 Raw API data:', data)
         
-        // Update users list with fresh data
-        setPendingUsers(data)
+        // Log each user's detailed state
+        data.forEach((user: PendingUser, index: number) => {
+          console.log(`👤 User ${index + 1} (${user.email}):`, {
+            id: user.id.substring(0, 8) + '...',
+            status: user.status,
+            emailVerified: user.emailVerified,
+            adminApproved: user.adminApproved,
+            isFullyApproved: user.status === 'approved' && user.emailVerified && user.adminApproved
+          })
+        })
         
-        // Calculate stats from the fetched data
+        // Force React to recognize this as new data
+        setPendingUsers([...data])
+        
+        // Calculate fresh stats
         const stats = {
           totalUsers: data.length,
           pendingEmail: data.filter((u: PendingUser) => !u.emailVerified).length,
-          pendingApproval: data.filter((u: PendingUser) => u.emailVerified && !u.adminApproved && u.status !== 'rejected' && u.status !== 'approved').length,
+          pendingApproval: data.filter((u: PendingUser) => 
+            u.emailVerified && !u.adminApproved && u.status !== 'rejected' && u.status !== 'approved'
+          ).length,
           approved: data.filter((u: PendingUser) => u.status === 'approved').length,
           rejected: data.filter((u: PendingUser) => u.status === 'rejected').length
         }
         
-        console.log('📊 Updated stats:', stats)
+        console.log('📊 Fresh stats calculated:', stats)
         setUserStats(stats)
+        
       } else {
-        console.error('Failed to fetch pending users:', response.status)
+        console.error('API Error:', response.status, response.statusText)
         const errorData = await response.json().catch(() => ({}))
         console.error('Error details:', errorData)
       }
     } catch (error) {
-      console.error('Failed to fetch pending users:', error)
+      console.error('Network error fetching users:', error)
     } finally {
       setIsLoading(false)
     }
-  }, []) // Empty dependency array since we don't depend on any external values
-
-  // Fetch data on mount and when lastRefresh changes
-  useEffect(() => {
-    fetchPendingUsers()
-  }, [fetchPendingUsers, lastRefresh])
-
-  // Force refresh function
-  const forceRefresh = useCallback(() => {
-    console.log('🔄 Force refresh triggered')
-    setLastRefresh(Date.now())
   }, [])
+
+  // Initial load
+  useEffect(() => {
+    console.log('🚀 AdminDashboard mounted, fetching initial data')
+    fetchPendingUsers(true)
+  }, [fetchPendingUsers])
+
+  // Manual refresh function
+  const handleRefresh = useCallback(async () => {
+    console.log('🔄 Manual refresh triggered')
+    await fetchPendingUsers(true)
+  }, [fetchPendingUsers])
 
   const handleUserAction = async (userId: string, action: 'approve' | 'reject', reason?: string) => {
     try {
-      console.log(`🔄 ${action} user:`, userId)
+      console.log(`🔄 ${action.toUpperCase()} USER ACTION STARTED:`, {
+        userId: userId.substring(0, 8) + '...',
+        action,
+        reason,
+        timestamp: new Date().toISOString()
+      })
+      
       setActionLoading(userId)
       const token = localStorage.getItem('auth_token')
       
@@ -113,42 +145,39 @@ export function AdminDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache'
         },
         body: JSON.stringify({ userId, action, reason })
       })
 
+      console.log(`📡 User action API response: ${response.status}`)
+
       if (response.ok) {
         const result = await response.json()
-        console.log(`✅ User ${action} successful:`, result)
+        console.log(`✅ User ${action} API success:`, result)
         
-        // Immediately update the local state to remove the user from the list
-        setPendingUsers(prevUsers => {
-          const updatedUsers = prevUsers.filter(user => user.id !== userId)
-          console.log(`🔄 Removed user ${userId} from local state. Remaining users:`, updatedUsers.length)
-          return updatedUsers
-        })
-        
-        // Force refresh the user list from database after a short delay
-        setTimeout(() => {
-          console.log('🔄 Force refreshing from database...')
-          forceRefresh()
-        }, 500)
-        
-        // Close modal if open
+        // Close modal first
         setShowRejectModal(false)
         setSelectedUser(null)
         setRejectionReason('')
         
-        // Show success message (optional)
-        console.log(`User ${action}d successfully`)
+        // Wait a moment for database consistency
+        console.log('⏳ Waiting for database consistency...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Force fresh data fetch
+        console.log('🔄 Force fetching fresh data after action...')
+        await fetchPendingUsers(true)
+        
+        console.log(`✅ User ${action} completed successfully`)
       } else {
         const error = await response.json()
-        console.error(`Failed to ${action} user:`, error.error)
+        console.error(`❌ ${action} failed:`, error)
         alert(`Failed to ${action} user: ${error.error}`)
       }
     } catch (error) {
-      console.error(`Failed to ${action} user:`, error)
+      console.error(`❌ ${action} error:`, error)
       alert(`Failed to ${action} user. Please try again.`)
     } finally {
       setActionLoading(null)
@@ -156,10 +185,12 @@ export function AdminDashboard() {
   }
 
   const handleApprove = (user: PendingUser) => {
+    console.log('👍 Approve button clicked for user:', user.email)
     handleUserAction(user.id, 'approve')
   }
 
   const handleReject = (user: PendingUser) => {
+    console.log('👎 Reject button clicked for user:', user.email)
     setSelectedUser(user)
     setShowRejectModal(true)
   }
@@ -171,25 +202,16 @@ export function AdminDashboard() {
   }
 
   const getFilteredUsers = () => {
-    console.log('🔍 Filtering users with filter:', filter)
-    console.log('📋 Total users before filtering:', pendingUsers.length)
-    
-    // Log each user's status for debugging
-    pendingUsers.forEach((user, index) => {
-      console.log(`👤 User ${index + 1}:`, {
-        email: user.email,
-        status: user.status,
-        emailVerified: user.emailVerified,
-        adminApproved: user.adminApproved,
-        isFullyApproved: user.status === 'approved' && user.emailVerified && user.adminApproved
-      })
-    })
+    console.log('🔍 FILTERING USERS:')
+    console.log(`📋 Filter: ${filter}`)
+    console.log(`📋 Total users: ${pendingUsers.length}`)
     
     let filtered: PendingUser[] = []
     
     switch (filter) {
       case 'pending_verification':
         filtered = pendingUsers.filter(user => !user.emailVerified)
+        console.log(`📋 Pending verification: ${filtered.length}`)
         break
       case 'pending_approval':
         filtered = pendingUsers.filter(user => 
@@ -198,21 +220,22 @@ export function AdminDashboard() {
           user.status !== 'rejected' && 
           user.status !== 'approved'
         )
+        console.log(`📋 Pending approval: ${filtered.length}`)
         break
       default:
-        // Fixed logic: Show users that need attention (exclude fully approved users)
+        // Show users that need attention (exclude fully approved)
         filtered = pendingUsers.filter(user => {
           const isFullyApproved = user.status === 'approved' && user.emailVerified && user.adminApproved
           const needsAttention = !isFullyApproved
           
-          console.log(`🔍 User ${user.email}: fully approved = ${isFullyApproved}, needs attention = ${needsAttention}`)
+          console.log(`👤 ${user.email}: approved=${user.status === 'approved'}, emailVerified=${user.emailVerified}, adminApproved=${user.adminApproved} → needsAttention=${needsAttention}`)
           
           return needsAttention
         })
+        console.log(`📋 All needing attention: ${filtered.length}`)
     }
     
-    console.log('📋 Filtered users:', filtered.length)
-    console.log('📋 Filtered user emails:', filtered.map(u => u.email))
+    console.log(`📋 Final filtered count: ${filtered.length}`)
     return filtered
   }
 
@@ -228,24 +251,35 @@ export function AdminDashboard() {
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
               <p className="text-slate-400">Manage user registrations and system oversight</p>
+              <p className="text-xs text-slate-500 mt-2">
+                Last updated: {new Date().toLocaleTimeString()}
+              </p>
             </div>
-            <button
-              onClick={forceRefresh}
-              disabled={isLoading}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-xl transition-all duration-200 font-medium shadow-lg hover:shadow-blue-500/25 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Refreshing...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span>🔄</span>
-                  <span>Refresh</span>
-                </div>
-              )}
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => window.location.href = '/api/debug-users'}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"
+              >
+                🐛 Debug DB
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-xl transition-all duration-200 font-medium shadow-lg hover:shadow-blue-500/25 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Refreshing...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span>🔄</span>
+                    <span>Force Refresh</span>
+                  </div>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -335,6 +369,18 @@ export function AdminDashboard() {
           </div>
         </div>
 
+        {/* Debug Info */}
+        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
+          <h3 className="text-red-400 font-medium mb-2">🐛 Debug Information</h3>
+          <div className="text-xs text-red-300 space-y-1">
+            <p>Total users in state: {pendingUsers.length}</p>
+            <p>Filtered users shown: {filteredUsers.length}</p>
+            <p>Current filter: {filter}</p>
+            <p>Is loading: {isLoading ? 'Yes' : 'No'}</p>
+            <p>Action loading: {actionLoading || 'None'}</p>
+          </div>
+        </div>
+
         {/* User Management Section */}
         <div className="bg-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8">
           <div className="flex justify-between items-center mb-8">
@@ -379,7 +425,7 @@ export function AdminDashboard() {
             <div className="flex justify-center py-16">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-slate-600 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-slate-400">Loading users...</p>
+                <p className="text-slate-400">Loading fresh data...</p>
               </div>
             </div>
           ) : filteredUsers.length === 0 ? (
@@ -395,6 +441,12 @@ export function AdminDashboard() {
                   ? 'No users are waiting for email verification.'
                   : 'No users are ready for approval.'}
               </p>
+              <button
+                onClick={handleRefresh}
+                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Refresh Data
+              </button>
             </div>
           ) : (
             <div className="bg-slate-900/50 rounded-xl border border-slate-700/30 overflow-hidden">
@@ -423,6 +475,7 @@ export function AdminDashboard() {
                             <div>
                               <p className="font-medium text-white">{user.name}</p>
                               <p className="text-sm text-slate-400">{user.email}</p>
+                              <p className="text-xs text-slate-500">ID: {user.id.substring(0, 8)}...</p>
                             </div>
                           </div>
                         </td>
